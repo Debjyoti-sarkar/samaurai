@@ -45,6 +45,12 @@ interface AuthContextType {
   needsReauth: boolean;
   requireReauth: () => void;
   completeReauth: () => void;
+  isExternalAuthFlowActive: boolean;
+  shouldSkipNextForegroundReauth: boolean;
+  foregroundReauthSuppressedUntil: number;
+  beginExternalAuthFlow: () => void;
+  endExternalAuthFlow: () => void;
+  consumeForegroundReauthSkip: () => void;
 
   // SIM security
   registerSIM: () => Promise<{ success: boolean; error?: string }>;
@@ -73,6 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // security
   const [needsReauth, setNeedsReauth] = useState(false);
   const [simChangeDetected, setSimChangeDetected] = useState(false);
+  const [isExternalAuthFlowActive, setIsExternalAuthFlowActive] = useState(false);
+  const [shouldSkipNextForegroundReauth, setShouldSkipNextForegroundReauth] = useState(false);
+  const [foregroundReauthSuppressedUntil, setForegroundReauthSuppressedUntil] = useState(0);
 
   // dashboard old features
   const [voiceGuideEnabled, setVoiceGuideEnabled] = useState(true);
@@ -223,6 +232,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNeedsReauth(false);
   };
 
+  const beginExternalAuthFlow = () => {
+    setIsExternalAuthFlowActive(true);
+    setForegroundReauthSuppressedUntil(Date.now() + 30000);
+  };
+
+  const endExternalAuthFlow = () => {
+    setIsExternalAuthFlowActive(false);
+    setShouldSkipNextForegroundReauth(true);
+    setForegroundReauthSuppressedUntil(Date.now() + 10000);
+  };
+
+  const consumeForegroundReauthSkip = () => {
+    setShouldSkipNextForegroundReauth(false);
+  };
+
   // dashboard toggles
   const toggleVoiceGuide = () =>
     setVoiceGuideEnabled((prev) => !prev);
@@ -300,6 +324,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         needsReauth,
         requireReauth,
         completeReauth,
+        isExternalAuthFlowActive,
+        shouldSkipNextForegroundReauth,
+        foregroundReauthSuppressedUntil,
+        beginExternalAuthFlow,
+        endExternalAuthFlow,
+        consumeForegroundReauthSkip,
 
         // SIM security
         registerSIM,

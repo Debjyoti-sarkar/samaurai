@@ -1,9 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, Pressable, Switch, Alert, GestureResponderEvent, TextInput, Modal, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Switch,
+  Alert,
+  GestureResponderEvent,
+  TextInput,
+  Modal,
+  ActivityIndicator,
+  TouchableOpacity,
+  Image,
+} from "react-native";
 import Animated, { FadeIn, FadeInDown, SlideOutDown, FadeOut } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ScreenScrollView } from "@/components/ScreenScrollView";
 import { ThemedText } from "@/components/ThemedText";
@@ -55,7 +69,15 @@ export default function SettingsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { t, language, languages, setLanguage } = useLanguage();
-  const { voiceGuideEnabled, toggleVoiceGuide, userData, updateUserProfile, logout } = useAuth();
+  const {
+    voiceGuideEnabled,
+    toggleVoiceGuide,
+    userData,
+    updateUserProfile,
+    logout,
+    beginExternalAuthFlow,
+    endExternalAuthFlow,
+  } = useAuth();
 
   // NexaSafe tracking
   const { trackScreenVisit, trackTap, trackTapDuration, trackSwipe, isSessionActive, endSession } = useNexaSafe();
@@ -71,6 +93,85 @@ export default function SettingsScreen() {
       trackScreenVisit('Settings');
     }
   }, [isSessionActive]);
+
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [isPhotoModalVisible, setIsPhotoModalVisible] = useState(false);
+
+  useEffect(() => {
+    const loadSavedProfilePhoto = async () => {
+      try {
+        const savedPhotoUri = await AsyncStorage.getItem("@kavach_profile_photo");
+        if (savedPhotoUri) {
+          setPhotoUri(savedPhotoUri);
+        }
+      } catch (error) {
+        console.warn("Failed to load profile photo", error);
+      }
+    };
+
+    loadSavedProfilePhoto();
+  }, []);
+
+  const handleTakePhoto = async () => {
+    beginExternalAuthFlow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert("Camera permission needed");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        const uri = result.assets?.[0]?.uri || (result as any).uri;
+        if (uri) {
+          setPhotoUri(uri);
+          await AsyncStorage.setItem("@kavach_profile_photo", uri);
+          setIsPhotoModalVisible(false);
+        }
+      }
+    } finally {
+      endExternalAuthFlow();
+    }
+  };
+
+  const handleChooseFromGallery = async () => {
+    beginExternalAuthFlow();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== "granted") {
+        Alert.alert("Gallery permission needed");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        const uri = result.assets?.[0]?.uri || (result as any).uri;
+        if (uri) {
+          setPhotoUri(uri);
+          await AsyncStorage.setItem("@kavach_profile_photo", uri);
+          setIsPhotoModalVisible(false);
+        }
+      }
+    } finally {
+      endExternalAuthFlow();
+    }
+  };
 
   // Handle tap tracking
   const handleTapStart = () => {
@@ -175,9 +276,25 @@ export default function SettingsScreen() {
   return (
     <ScreenScrollView>
       <View style={[styles.profileCard, { backgroundColor: theme.card }, Shadows.md]}>
-        <View style={[styles.avatar, { backgroundColor: KAVACHColors.primary }]}>
-          <ThemedText style={styles.avatarText}>{(userData?.name || "User").charAt(0).toUpperCase()}</ThemedText>
-        </View>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setIsPhotoModalVisible(true)}
+          style={[
+            styles.avatar,
+            {
+              backgroundColor: photoUri ? "transparent" : KAVACHColors.primary,
+              borderWidth: photoUri ? 2 : 0,
+              borderColor: photoUri ? "#6C63FF" : "transparent",
+              overflow: "hidden",
+            },
+          ]}
+        >
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={styles.avatarImage} resizeMode="cover" />
+          ) : (
+            <ThemedText style={styles.avatarText}>{(userData?.name || "User").charAt(0).toUpperCase()}</ThemedText>
+          )}
+        </TouchableOpacity>
         <View style={styles.profileInfo}>
           <ThemedText type="h4">{userData?.name || "User"}</ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -335,6 +452,44 @@ export default function SettingsScreen() {
         </ThemedText>
       </View>
 
+      <Modal
+        visible={isPhotoModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsPhotoModalVisible(false)}
+      >
+        <View style={styles.photoModalOverlay}>
+          <TouchableOpacity style={styles.photoModalBackdrop} activeOpacity={1} onPress={() => setIsPhotoModalVisible(false)} />
+          <Animated.View
+            entering={FadeInDown.duration(250)}
+            exiting={SlideOutDown.duration(200)}
+            style={[styles.photoModalContent, { backgroundColor: theme.backgroundRoot, borderColor: theme.border }]}
+          >
+            <ThemedText type="h3" style={styles.photoModalTitle}>
+              Update Profile Photo
+            </ThemedText>
+
+            <Pressable style={styles.photoModalOption} onPress={handleTakePhoto}>
+              <View style={styles.photoModalOptionIcon}>
+                <Feather name="camera" size={18} color={KAVACHColors.primary} />
+              </View>
+              <ThemedText style={styles.photoModalOptionText}>Take Photo</ThemedText>
+            </Pressable>
+
+            <Pressable style={styles.photoModalOption} onPress={handleChooseFromGallery}>
+              <View style={styles.photoModalOptionIcon}>
+                <Feather name="image" size={18} color={KAVACHColors.primary} />
+              </View>
+              <ThemedText style={styles.photoModalOptionText}>Choose from Gallery</ThemedText>
+            </Pressable>
+
+            <Pressable style={styles.photoModalCancel} onPress={() => setIsPhotoModalVisible(false)}>
+              <ThemedText style={styles.photoModalCancelText}>Cancel</ThemedText>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
+
       {/* EDIT PROFILE MODAL */}
       <Modal visible={isEditing} transparent animationType="none" onRequestClose={() => !isSaving && setIsEditing(false)}>
         <View style={styles.modalOverlay}>
@@ -456,6 +611,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: Spacing.md,
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   avatarText: {
     color: "#FFFFFF",
@@ -587,5 +747,59 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     borderWidth: 1,
     marginTop: Spacing.sm,
+  },
+  photoModalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  photoModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  photoModalContent: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing["3xl"],
+    borderTopLeftRadius: BorderRadius.xl * 1.5,
+    borderTopRightRadius: BorderRadius.xl * 1.5,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  photoModalTitle: {
+    marginBottom: Spacing.lg,
+  },
+  photoModalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  photoModalOptionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: KAVACHColors.primary + "10",
+    marginRight: Spacing.md,
+  },
+  photoModalOptionText: {
+    fontSize: 16,
+  },
+  photoModalCancel: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoModalCancelText: {
+    color: KAVACHColors.sos,
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

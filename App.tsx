@@ -37,10 +37,19 @@ function getActiveRouteName(state: NavigationState | undefined): string | undefi
 }
 
 // ----------------------------------------------------
-// Internal Component – Your main app content
+// Internal Component - Your main app content
 // ----------------------------------------------------
 function AppContent() {
-  const { isLoading, requireReauth, logout, hasCompletedOnboarding } = useAuth();
+  const {
+    isLoading,
+    requireReauth,
+    logout,
+    hasCompletedOnboarding,
+    isExternalAuthFlowActive,
+    shouldSkipNextForegroundReauth,
+    foregroundReauthSuppressedUntil,
+    consumeForegroundReauthSkip,
+  } = useAuth();
   const { theme, isDark } = useTheme();
   const {
     startSession,
@@ -54,20 +63,20 @@ function AppContent() {
   // Track previous route for NexaSafe screen tracking
   const routeNameRef = useRef<string | undefined>(undefined);
 
-  // 🔒 SIM SECURITY: Stable callbacks for SIM monitor
+  // SIM SECURITY: Stable callbacks for SIM monitor
   const handleSIMChangeCallback = useCallback(() => {
-    console.log("🚨 SIM Change callback triggered - forcing logout");
+    console.log("SIM Change callback triggered - forcing logout");
     logout();
   }, [logout]);
 
   const handleDataWipedCallback = useCallback(() => {
-    console.log("✅ Data wiped callback triggered - app reset to initial state");
+    console.log("Data wiped callback triggered - app reset to initial state");
     // Force app to restart from language selection
     // The wipeAllAppData already clears all storage, so on next load
     // the app will show language selection screen
   }, []);
 
-  // 🔒 SIM SECURITY: Monitor SIM changes and wipe data if SIM swapped
+  // SIM SECURITY: Monitor SIM changes and wipe data if SIM swapped
   const { simValid, isChecking: isCheckingSIM } = useSIMMonitor({
     enabled: hasCompletedOnboarding, // Only monitor after onboarding complete
     onSIMChange: handleSIMChangeCallback,
@@ -81,18 +90,18 @@ function AppContent() {
 
     if (currentRouteName && currentRouteName !== previousRouteName && isSessionActive) {
       trackScreenVisit(currentRouteName);
-      console.log(`📱 NexaSafe tracking screen: ${currentRouteName}`);
+      console.log(`NexaSafe tracking screen: ${currentRouteName}`);
     }
 
     routeNameRef.current = currentRouteName;
   }, [isSessionActive, trackScreenVisit]);
 
-  // 🔒 SECURITY: Block screen recording and screenshots globally
+  // SECURITY: Block screen recording and screenshots globally
   useEffect(() => {
     const enableScreenSecurity = async () => {
       try {
         // await ScreenCapture.preventScreenCaptureAsync();
-        console.log("🔒 Screen capture prevention ENABLED (commented out for dev)");
+        console.log("Screen capture prevention enabled (commented out for dev)");
       } catch (error) {
         console.warn("Failed to enable screen capture prevention:", error);
         // If prevention fails, mark as potential screen recording
@@ -108,27 +117,41 @@ function AppContent() {
     };
   }, [setScreenRecordingDetected]);
 
-  // 🛡️ NexaSafe: Set logout callback
+  // NexaSafe: Set logout callback
   useEffect(() => {
     setLogoutCallback(() => {
-      console.log("🚪 NexaSafe triggered logout due to suspicious activity");
+      console.log("NexaSafe triggered logout due to suspicious activity");
       logout();
     });
   }, [setLogoutCallback, logout]);
 
-  // 🛡️ NexaSafe: Start session when user is authenticated
+  // NexaSafe: Start session when user is authenticated
   useEffect(() => {
     if (hasCompletedOnboarding && !isLoading && !isSessionActive) {
       startSession();
-      console.log("🛡️ NexaSafe session started for authenticated user");
+      console.log("NexaSafe session started for authenticated user");
     }
   }, [hasCompletedOnboarding, isLoading, isSessionActive, startSession]);
 
-  // 🔥 CRUCIAL: Ask for PIN every time the app comes to foreground
+  // CRUCIAL: Ask for PIN every time the app comes to foreground,
+  // except while returning from trusted external flows like image cropper.
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state === "active") {
-        console.log("📲 App returned to foreground → Reauth required");
+        const isForegroundReauthSuppressed =
+          isExternalAuthFlowActive ||
+          shouldSkipNextForegroundReauth ||
+          Date.now() < foregroundReauthSuppressedUntil;
+
+        if (isForegroundReauthSuppressed) {
+          if (shouldSkipNextForegroundReauth) {
+            consumeForegroundReauthSkip();
+          }
+          console.log("Skipping reauth after trusted external flow");
+          return;
+        }
+
+        console.log("App returned to foreground, reauth required");
         requireReauth();
 
         // Re-enable screen capture prevention when app becomes active
@@ -137,7 +160,13 @@ function AppContent() {
     });
 
     return () => sub.remove();
-  }, [requireReauth]);
+  }, [
+    consumeForegroundReauthSkip,
+    foregroundReauthSuppressedUntil,
+    isExternalAuthFlowActive,
+    requireReauth,
+    shouldSkipNextForegroundReauth,
+  ]);
 
   if (isLoading || isCheckingSIM) {
     return (
@@ -161,7 +190,6 @@ function AppContent() {
     </>
   );
 }
-
 
 // ----------------------------------------------------
 // Main App Component
@@ -189,7 +217,6 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-
 
 // ----------------------------------------------------
 const styles = StyleSheet.create({

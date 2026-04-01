@@ -312,23 +312,23 @@ export default function VoiceAssistantScreen() {
         break;
 
       case "ask_pin_for_balance":
-        navigation.navigate("BalanceScreen" as never);
+        navigation.navigate("Balance" as never);
         break;
 
       case "show_history":
-        navigation.navigate("TransactionHistoryScreen" as never);
+        navigation.navigate("TransactionHistory" as never);
         break;
 
       case "scan_qr":
-        navigation.navigate("QRScannerScreen" as never);
+        navigation.navigate("QRScanner" as never);
         break;
 
       case "check_fraud":
-        navigation.navigate("FraudScanner" as never);
+        navigation.navigate("FraudScan" as never);
         break;
 
       case "help_support_page":
-        navigation.navigate("HelpFaqScreen" as never);
+        navigation.navigate("HelpFaq" as never);
         break;
 
       default:

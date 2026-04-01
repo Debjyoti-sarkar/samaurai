@@ -14,12 +14,18 @@ import Animated, {
 import { ScreenKeyboardAwareScrollView } from "@/components/ScreenKeyboardAwareScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { CustomFaceUnlock } from "@/components/CustomFaceUnlock";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { saveSecurePin, saveBiometricFlag, saveAadhaar } from "@/utils/secureManager";
+import {
+  saveSecurePin,
+  saveBiometricFlag,
+  saveCustomFaceFlag,
+  saveCustomFaceEnrolledFlag,
+} from "@/utils/secureManager";
 import simService from "@/services/SIMService";
-import { Spacing, BorderRadius, KAVACHColors, Shadows } from "@/constants/theme";
+import { Spacing, KAVACHColors } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootNavigator";
 
 const PIN_LENGTH = 6;
@@ -28,16 +34,26 @@ type SetupStep = "biometric" | "pin_create" | "pin_confirm" | "aadhaar";
 
 export default function SecuritySetupScreen() {
   const { theme } = useTheme();
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { t } = useLanguage();
-  const { setupPin, enableBiometric, linkAadhaar, completeOnboarding, userData, registerSIM } = useAuth();
+  const {
+    setupPin,
+    enableBiometric,
+    enableCustomFace,
+    completeOnboarding,
+    userData,
+    registerSIM,
+  } = useAuth();
 
   const [step, setStep] = useState<SetupStep>("biometric");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [biometricType, setBiometricType] = useState<string>("Biometric");
-  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricType, setBiometricType] =
+    useState<string>("System Biometrics");
   const [pinError, setPinError] = useState(false);
+  const [showFaceEnrollment, setShowFaceEnrollment] = useState(false);
+  const [hasHardwareBio, setHasHardwareBio] = useState(false);
 
   const shakeAnimation = useSharedValue(0);
 
@@ -47,11 +63,25 @@ export default function SecuritySetupScreen() {
 
   const checkBiometricType = async () => {
     try {
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-        setBiometricType("Face ID");
-      } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-        setBiometricType("Fingerprint");
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      setHasHardwareBio(hasHardware && isEnrolled);
+
+      if (hasHardware && isEnrolled) {
+        const types =
+          await LocalAuthentication.supportedAuthenticationTypesAsync();
+        if (
+          types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)
+        ) {
+          setBiometricType("Fingerprint");
+        } else if (
+          types.includes(
+            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+          )
+        ) {
+          setBiometricType("Face ID");
+        }
       }
     } catch (error) {
       console.log("Biometric check error:", error);
@@ -64,12 +94,9 @@ export default function SecuritySetupScreen() {
 
   const handleBiometricSetup = async () => {
     try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-      if (!hasHardware || !isEnrolled) {
-        setBiometricEnabled(false);
-        setStep("pin_create");
+      if (!hasHardwareBio) {
+        // Fallback to custom face setup directly
+        handleCustomFaceSetup();
         return;
       }
 
@@ -79,7 +106,6 @@ export default function SecuritySetupScreen() {
       });
 
       if (result.success) {
-        setBiometricEnabled(true);
         await saveBiometricFlag(true);
         await enableBiometric(true);
       }
@@ -90,8 +116,25 @@ export default function SecuritySetupScreen() {
     }
   };
 
+  const handleCustomFaceSetup = async () => {
+    setShowFaceEnrollment(true);
+  };
+
+  const handleCustomFaceEnrollmentSuccess = async () => {
+    try {
+      await saveCustomFaceFlag(true);
+      await saveCustomFaceEnrolledFlag(true);
+      await enableCustomFace(true);
+      setShowFaceEnrollment(false);
+      setStep("pin_create");
+    } catch (error) {
+      console.log("Custom Face setup error:", error);
+      setShowFaceEnrollment(false);
+      setStep("pin_create");
+    }
+  };
+
   const handleSkipBiometric = () => {
-    setBiometricEnabled(false);
     setStep("pin_create");
   };
 
@@ -118,7 +161,7 @@ export default function SecuritySetupScreen() {
             withSpring(-10, { damping: 3, stiffness: 400 }),
             withSpring(10, { damping: 3, stiffness: 400 }),
             withSpring(-10, { damping: 3, stiffness: 400 }),
-            withSpring(0, { damping: 3, stiffness: 400 })
+            withSpring(0, { damping: 3, stiffness: 400 }),
           );
           setConfirmPin("");
         }
@@ -137,10 +180,10 @@ export default function SecuritySetupScreen() {
       console.log("🔄 Completing onboarding...");
       await completeOnboarding();
       console.log("✅ Onboarding completed");
-      
+
       console.log("🚀 Navigating to Dashboard...");
       // Navigate immediately on web, use setTimeout for native
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         navigation.reset({
           index: 0,
           routes: [{ name: "Dashboard" }],
@@ -150,9 +193,12 @@ export default function SecuritySetupScreen() {
         try {
           await registerSIMDuringSetup();
         } catch (simError) {
-          console.warn("⚠️ SIM registration failed, continuing anyway:", simError);
+          console.warn(
+            "⚠️ SIM registration failed, continuing anyway:",
+            simError,
+          );
         }
-        
+
         setTimeout(() => {
           navigation.reset({
             index: 0,
@@ -183,7 +229,9 @@ export default function SecuritySetupScreen() {
           console.warn("⚠️ SIM registration failed:", result.error);
         }
       } else {
-        console.warn("⚠️ Phone state permission not granted for SIM registration");
+        console.warn(
+          "⚠️ Phone state permission not granted for SIM registration",
+        );
       }
     } catch (error) {
       console.error("❌ Error during SIM registration:", error);
@@ -195,7 +243,8 @@ export default function SecuritySetupScreen() {
     try {
       // Try to persist aadhaar locally (if available on userData). If not available,
       // proceed with the existing linking flow which may return/verify the aadhaar.
-      const aadhaarNumber = (userData as any)?.aadhaarNumber ?? (userData as any)?.aadhaar ?? null;
+      const aadhaarNumber =
+        (userData as any)?.aadhaarNumber ?? (userData as any)?.aadhaar ?? null;
       if (aadhaarNumber) {
         await saveAadhaar(aadhaarNumber);
       }
@@ -203,13 +252,13 @@ export default function SecuritySetupScreen() {
       await linkAadhaar();
 
       // Register SIM before completing onboarding (skip on web)
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         await registerSIMDuringSetup();
       }
 
       await completeOnboarding();
       console.log("✅ Onboarding complete, navigating to Dashboard...");
-      
+
       // Use a slight delay to ensure state updates
       setTimeout(() => {
         navigation.reset({
@@ -226,13 +275,13 @@ export default function SecuritySetupScreen() {
     console.log("⏭️ handleSkipAadhaar - Starting...");
     try {
       // Register SIM before completing onboarding (skip on web)
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         await registerSIMDuringSetup();
       }
 
       await completeOnboarding();
       console.log("✅ Onboarding complete, navigating to Dashboard...");
-      
+
       // Use a slight delay to ensure state updates
       setTimeout(() => {
         navigation.reset({
@@ -247,7 +296,12 @@ export default function SecuritySetupScreen() {
 
   const renderBiometricStep = () => (
     <View style={styles.stepContainer}>
-      <View style={[styles.iconContainer, { backgroundColor: KAVACHColors.primary + "15" }]}>
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: KAVACHColors.primary + "15" },
+        ]}
+      >
         <Feather
           name={biometricType === "Face ID" ? "smile" : "lock"}
           size={48}
@@ -257,16 +311,45 @@ export default function SecuritySetupScreen() {
       <ThemedText type="h2" style={styles.title}>
         {t("setupBiometric")}
       </ThemedText>
-      <ThemedText type="small" style={[styles.subtitle, { color: theme.textSecondary }]}>
-        Enable {biometricType} for quick and secure access to KAVACH
+      <ThemedText
+        type="small"
+        style={[styles.subtitle, { color: theme.textSecondary }]}
+      >
+        Enable {hasHardwareBio ? biometricType : "KAVACH Face ID"} for quick and
+        secure access to KAVACH
       </ThemedText>
 
-      <Button
-        onPress={handleBiometricSetup}
-        style={[styles.actionButton, { backgroundColor: KAVACHColors.primary }]}
-      >
-        Enable {biometricType}
-      </Button>
+      {hasHardwareBio ? (
+        <>
+          <Button
+            onPress={handleBiometricSetup}
+            style={[
+              styles.actionButton,
+              { backgroundColor: KAVACHColors.primary },
+            ]}
+          >
+            Enable {biometricType}
+          </Button>
+
+          <Button
+            onPress={handleCustomFaceSetup}
+            variant="outline"
+            style={styles.actionButton}
+          >
+            Use Camera Face ID instead
+          </Button>
+        </>
+      ) : (
+        <Button
+          onPress={handleCustomFaceSetup}
+          style={[
+            styles.actionButton,
+            { backgroundColor: KAVACHColors.primary },
+          ]}
+        >
+          Enable Camera Face ID
+        </Button>
+      )}
 
       <Pressable onPress={handleSkipBiometric} style={styles.skipButton}>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>
@@ -278,13 +361,21 @@ export default function SecuritySetupScreen() {
 
   const renderPinStep = (isConfirm: boolean) => (
     <View style={styles.stepContainer}>
-      <View style={[styles.iconContainer, { backgroundColor: KAVACHColors.primary + "15" }]}>
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: KAVACHColors.primary + "15" },
+        ]}
+      >
         <Feather name="lock" size={48} color={KAVACHColors.primary} />
       </View>
       <ThemedText type="h2" style={styles.title}>
         {isConfirm ? t("confirmPin") : t("createPin")}
       </ThemedText>
-      <ThemedText type="small" style={[styles.subtitle, { color: theme.textSecondary }]}>
+      <ThemedText
+        type="small"
+        style={[styles.subtitle, { color: theme.textSecondary }]}
+      >
         {isConfirm
           ? "Enter the same PIN to confirm"
           : "Create a secure 6-digit PIN for backup access"}
@@ -321,7 +412,10 @@ export default function SecuritySetupScreen() {
       </Animated.View>
 
       {pinError ? (
-        <ThemedText type="small" style={[styles.errorText, { color: KAVACHColors.sos }]}>
+        <ThemedText
+          type="small"
+          style={[styles.errorText, { color: KAVACHColors.sos }]}
+        >
           PINs do not match. Please try again.
         </ThemedText>
       ) : null}
@@ -343,83 +437,41 @@ export default function SecuritySetupScreen() {
     </View>
   );
 
-  const renderAadhaarStep = () => (
-    <View style={styles.stepContainer}>
-      <View style={[styles.iconContainer, { backgroundColor: KAVACHColors.primary + "15" }]}>
-        <Feather name="shield" size={48} color={KAVACHColors.primary} />
-      </View>
-      <ThemedText type="h2" style={styles.title}>
-        {t("aadhaarVerification")}
-      </ThemedText>
-      <ThemedText type="small" style={[styles.subtitle, { color: theme.textSecondary }]}>
-        Link your Aadhaar for enhanced security and faster transactions
-      </ThemedText>
-
-      <View style={[styles.featuresList, { backgroundColor: theme.backgroundSecondary }]}>
-        <FeatureItem icon="check-circle" text="Instant verification" theme={theme} />
-        <FeatureItem icon="zap" text="Faster transactions" theme={theme} />
-        <FeatureItem icon="shield" text="Enhanced security" theme={theme} />
-      </View>
-
-      <Button
-        onPress={handleAadhaarLink}
-        style={[styles.actionButton, { backgroundColor: KAVACHColors.primary }]}
-      >
-        Link Aadhaar
-      </Button>
-
-      <Pressable onPress={handleSkipAadhaar} style={styles.skipButton}>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>
-          Skip for now
-        </ThemedText>
-      </Pressable>
-    </View>
-  );
-
   return (
-    <ScreenKeyboardAwareScrollView>
-      <View style={styles.progressContainer}>
-        {["biometric", "pin_create"].map((s, index) => (
-          <View
-            key={s}
-            style={[
-              styles.progressDot,
-              {
-                backgroundColor:
-                  step === s || (step === "pin_confirm" && s === "pin_create")
-                    ? KAVACHColors.primary
-                    : (step === "pin_confirm" && index < 1)
-                    ? KAVACHColors.primary
-                    : theme.border,
-              },
-            ]}
-          />
-        ))}
-      </View>
+    <>
+      <ScreenKeyboardAwareScrollView>
+        <View style={styles.progressContainer}>
+          {["biometric", "pin_create"].map((s, index) => (
+            <View
+              key={s}
+              style={[
+                styles.progressDot,
+                {
+                  backgroundColor:
+                    step === s || (step === "pin_confirm" && s === "pin_create")
+                      ? KAVACHColors.primary
+                      : step === "pin_confirm" && index < 1
+                        ? KAVACHColors.primary
+                        : theme.border,
+                },
+              ]}
+            />
+          ))}
+        </View>
 
-      {step === "biometric" && renderBiometricStep()}
-      {step === "pin_create" && renderPinStep(false)}
-      {step === "pin_confirm" && renderPinStep(true)}
-    </ScreenKeyboardAwareScrollView>
-  );
-}
+        {step === "biometric" && renderBiometricStep()}
+        {step === "pin_create" && renderPinStep(false)}
+        {step === "pin_confirm" && renderPinStep(true)}
+      </ScreenKeyboardAwareScrollView>
 
-function FeatureItem({
-  icon,
-  text,
-  theme,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  text: string;
-  theme: any;
-}) {
-  return (
-    <View style={styles.featureItem}>
-      <Feather name={icon} size={20} color={KAVACHColors.success} />
-      <ThemedText type="small" style={{ marginLeft: Spacing.sm }}>
-        {text}
-      </ThemedText>
-    </View>
+      <CustomFaceUnlock
+        visible={showFaceEnrollment}
+        mode="enroll"
+        userId={userData?.phoneNumber || ""}
+        onClose={() => setShowFaceEnrollment(false)}
+        onSuccess={handleCustomFaceEnrollmentSuccess}
+      />
+    </>
   );
 }
 
@@ -483,16 +535,5 @@ const styles = StyleSheet.create({
   },
   errorText: {
     marginBottom: Spacing.xl,
-  },
-  featuresList: {
-    width: "100%",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    marginBottom: Spacing.xl,
-    gap: Spacing.md,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
   },
 });

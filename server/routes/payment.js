@@ -1,42 +1,256 @@
 /**
  * Payment Gateway Integration - Cashfree API
- * 
+ *
  * This module handles payment order creation and verification with Cashfree
  */
 
-import express from 'express';
-import crypto from 'crypto';
+import express from "express";
+import crypto from "crypto";
+import PaymentOrder from "../models/PaymentOrder.js";
 
 const router = express.Router();
+
+function generatePaymentOrderId() {
+  return `UPI_${Date.now()}_${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+function normalizeBackendPayment(record) {
+  return {
+    success: true,
+    orderId: record.orderId,
+    amount: record.amount,
+    recipient: record.recipient,
+    status: record.status,
+    referenceId: record.referenceId || record.orderId,
+    failureReason: record.failureReason,
+    timestamp: record.updatedAt || record.createdAt,
+  };
+}
+
+function getPaymentWebhookSecret() {
+  return process.env.PAYMENT_WEBHOOK_SECRET || "";
+}
+
+function isWebhookSecretValid(req) {
+  const configuredSecret = getPaymentWebhookSecret();
+  if (!configuredSecret) {
+    return true;
+  }
+
+  return req.header("x-payment-webhook-secret") === configuredSecret;
+}
+
+async function updateStoredPayment(
+  orderId,
+  status,
+  referenceId,
+  failureReason,
+) {
+  const record = await PaymentOrder.findOne({ orderId });
+  if (!record) {
+    return null;
+  }
+
+  record.status = status;
+  record.referenceId = referenceId || record.referenceId || orderId;
+  record.failureReason =
+    status === "FAILED" ? failureReason || "Payment failed" : null;
+
+  return record.save();
+}
 
 // Helper function to get Cashfree config at runtime
 function getCashfreeConfig() {
   return {
-    baseUrl: process.env.CASHFREE_ENV === 'production' 
-      ? 'https://api.cashfree.com/pg' 
-      : 'https://sandbox.cashfree.com/pg',
+    baseUrl:
+      process.env.CASHFREE_ENV === "production"
+        ? "https://api.cashfree.com/pg"
+        : "https://sandbox.cashfree.com/pg",
     appId: process.env.CASHFREE_APP_ID,
-    secretKey: process.env.CASHFREE_SECRET_KEY
+    secretKey: process.env.CASHFREE_SECRET_KEY,
   };
 }
+
+router.post("/payments/create", async (req, res) => {
+  try {
+    const { amount, upiId, note, contactName } = req.body;
+
+    if (!amount || Number(amount) <= 0 || !upiId) {
+      return res.status(400).json({
+        success: false,
+        message: "amount and upiId are required",
+      });
+    }
+
+    const orderId = generatePaymentOrderId();
+    const now = new Date().toISOString();
+
+    const record = await PaymentOrder.create({
+      orderId,
+      amount: Number(amount),
+      recipient: upiId,
+      note: note || "",
+      contactName: contactName || "",
+      status: "PENDING",
+      referenceId: null,
+      failureReason: null,
+    });
+
+    return res.json({
+      success: true,
+      orderId,
+      amount: record.amount,
+      recipient: record.recipient,
+      merchantId: "KAVACH_UPI",
+      timestamp: now,
+      status: record.status,
+    });
+  } catch (error) {
+    console.error("Create backend payment error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create payment order",
+    });
+  }
+});
+
+router.get("/payments/status/:orderId", async (req, res) => {
+  const { orderId } = req.params;
+  const record = await PaymentOrder.findOne({ orderId }).lean();
+
+  if (!record) {
+    return res.status(404).json({
+      success: false,
+      message: "Payment order not found",
+    });
+  }
+
+  return res.json(normalizeBackendPayment(record));
+});
+
+router.post("/payments/webhook", async (req, res) => {
+  try {
+    const { orderId, status, referenceId, failureReason } = req.body;
+
+    if (!isWebhookSecretValid(req)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid payment webhook secret",
+      });
+    }
+
+    if (!orderId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId and status are required",
+      });
+    }
+
+    const normalizedStatus = String(status).toUpperCase();
+    if (!["PENDING", "SUCCESS", "FAILED"].includes(normalizedStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "status must be PENDING, SUCCESS, or FAILED",
+      });
+    }
+
+    const updatedRecord = await updateStoredPayment(
+      orderId,
+      normalizedStatus,
+      referenceId,
+      failureReason,
+    );
+    if (!updatedRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment order not found",
+      });
+    }
+
+    console.log("Backend payment webhook updated:", updatedRecord);
+    return res.json(normalizeBackendPayment(updatedRecord));
+  } catch (error) {
+    console.error("Backend payment webhook error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process payment webhook",
+    });
+  }
+});
+
+router.post("/payments/test-confirm", async (req, res) => {
+  try {
+    if (process.env.ALLOW_PAYMENT_TEST_CONFIRM !== "true") {
+      return res.status(403).json({
+        success: false,
+        message: "Test payment confirmation is disabled",
+      });
+    }
+
+    if (!isWebhookSecretValid(req)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid payment webhook secret",
+      });
+    }
+
+    const {
+      orderId,
+      status = "SUCCESS",
+      referenceId,
+      failureReason,
+    } = req.body;
+    const normalizedStatus = String(status).toUpperCase();
+
+    if (!orderId || !["SUCCESS", "FAILED"].includes(normalizedStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId and a status of SUCCESS or FAILED are required",
+      });
+    }
+
+    const updatedRecord = await updateStoredPayment(
+      orderId,
+      normalizedStatus,
+      referenceId || `DEMO_${Date.now()}`,
+      failureReason,
+    );
+    if (!updatedRecord) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment order not found",
+      });
+    }
+
+    console.log(
+      "Test payment confirmation updated:",
+      updatedRecord.orderId,
+      normalizedStatus,
+    );
+    return res.json(normalizeBackendPayment(updatedRecord));
+  } catch (error) {
+    console.error("Test payment confirmation error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update test payment confirmation",
+    });
+  }
+});
 
 /**
  * Generate signature for Cashfree API authentication
  */
-function generateSignature(orderId, orderAmount, orderCurrency = 'INR') {
+function generateSignature(orderId, orderAmount, orderCurrency = "INR") {
   const { secretKey } = getCashfreeConfig();
   const data = `${orderId}${orderAmount}${orderCurrency}`;
-  return crypto
-    .createHmac('sha256', secretKey)
-    .update(data)
-    .digest('base64');
+  return crypto.createHmac("sha256", secretKey).update(data).digest("base64");
 }
 
 /**
  * POST /api/payment/create-order
  * Create a payment order with Cashfree using Payment Links API
  * This generates a hosted payment page URL that works reliably
- * 
+ *
  * Request Body:
  * {
  *   amount: number,
@@ -46,25 +260,31 @@ function generateSignature(orderId, orderAmount, orderCurrency = 'INR') {
  *   customerName: string
  * }
  */
-router.post('/create-order', async (req, res) => {
+router.post("/create-order", async (req, res) => {
   try {
     const { amount, recipient, note, customerPhone, customerName } = req.body;
     const { baseUrl, appId, secretKey } = getCashfreeConfig();
 
     // Log for debugging
-    console.log('📝 Payment order request:', { amount, recipient, customerPhone, customerName });
-    console.log('🔑 Cashfree Config:', { 
+    console.log("📝 Payment order request:", {
+      amount,
+      recipient,
+      customerPhone,
+      customerName,
+    });
+    console.log("🔑 Cashfree Config:", {
       env: process.env.CASHFREE_ENV,
-      appId: appId ? 'Set ✅' : 'Missing ❌',
-      secretKey: secretKey ? 'Set ✅' : 'Missing ❌',
-      baseUrl: baseUrl
+      appId: appId ? "Set ✅" : "Missing ❌",
+      secretKey: secretKey ? "Set ✅" : "Missing ❌",
+      baseUrl: baseUrl,
     });
 
     // Validate Cashfree credentials
     if (!appId || !secretKey) {
       return res.status(500).json({
         success: false,
-        message: 'Cashfree credentials not configured. Please set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in .env file'
+        message:
+          "Cashfree credentials not configured. Please set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in .env file",
       });
     }
 
@@ -72,7 +292,8 @@ router.post('/create-order', async (req, res) => {
     if (!amount || !recipient || !customerPhone || !customerName) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: amount, recipient, customerPhone, customerName'
+        message:
+          "Missing required fields: amount, recipient, customerPhone, customerName",
       });
     }
 
@@ -80,69 +301,69 @@ router.post('/create-order', async (req, res) => {
     const linkId = `PAY_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
     // Use Payment Links API - generates a hosted checkout page
-    const isSandbox = baseUrl.includes('sandbox');
-    const linksUrl = isSandbox 
-      ? 'https://sandbox.cashfree.com/pg/links'
-      : 'https://api.cashfree.com/pg/links';
+    const isSandbox = baseUrl.includes("sandbox");
+    const linksUrl = isSandbox
+      ? "https://sandbox.cashfree.com/pg/links"
+      : "https://api.cashfree.com/pg/links";
 
     // Prepare Payment Link payload
     const linkData = {
       link_id: linkId,
       link_amount: parseFloat(amount),
-      link_currency: 'INR',
+      link_currency: "INR",
       link_purpose: note || `Payment to ${recipient}`,
       customer_details: {
         customer_name: customerName,
         customer_phone: customerPhone,
-        customer_email: `${customerPhone}@securepayflow.app`
+        customer_email: `${customerPhone}@securepayflow.app`,
       },
       link_notify: {
         send_sms: false,
-        send_email: false
+        send_email: false,
       },
       link_meta: {
-        upi_intent: true
+        upi_intent: true,
       },
       link_notes: {
         recipient: recipient,
-        app: 'SecurePayFlow'
+        app: "SecurePayFlow",
       },
-      link_expiry_time: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+      link_expiry_time: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
     };
 
-    console.log('📤 Calling Cashfree Payment Links API:', linksUrl);
+    console.log("📤 Calling Cashfree Payment Links API:", linksUrl);
 
     // Call Cashfree Payment Links API
     const response = await fetch(linksUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'x-client-id': appId,
-        'x-client-secret': secretKey,
-        'x-api-version': '2023-08-01'
+        "Content-Type": "application/json",
+        "x-client-id": appId,
+        "x-client-secret": secretKey,
+        "x-api-version": "2023-08-01",
       },
-      body: JSON.stringify(linkData)
+      body: JSON.stringify(linkData),
     });
 
     const result = await response.json();
 
-    console.log('📥 Cashfree Response:', { status: response.status, result });
+    console.log("📥 Cashfree Response:", { status: response.status, result });
 
     if (!response.ok) {
-      console.error('❌ Cashfree API Error:', result);
+      console.error("❌ Cashfree API Error:", result);
       return res.status(response.status).json({
         success: false,
-        message: 'Failed to create payment link',
-        error: result
+        message: "Failed to create payment link",
+        error: result,
       });
     }
 
     // Get the payment URL directly from Cashfree
     const paymentUrl = result.link_url;
 
-    console.log('🔗 Payment URL:', paymentUrl);
-    console.log('📋 Link ID:', linkId);
-    console.log('📊 Link Status:', result.link_status);
+    console.log("🔗 Payment URL:", paymentUrl);
+    console.log("📋 Link ID:", linkId);
+    console.log("📊 Link Status:", result.link_status);
 
     // Return order details to client
     res.json({
@@ -155,15 +376,14 @@ router.post('/create-order', async (req, res) => {
       merchantId: appId,
       timestamp: new Date().toISOString(),
       orderStatus: result.link_status,
-      paymentUrl: paymentUrl
+      paymentUrl: paymentUrl,
     });
-
   } catch (error) {
-    console.error('Create Order Error:', error);
+    console.error("Create Order Error:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });
@@ -173,52 +393,52 @@ router.post('/create-order', async (req, res) => {
  * Callback endpoint - Cashfree redirects here after payment
  * Shows a success/failure page to the user
  */
-router.get('/callback', async (req, res) => {
+router.get("/callback", async (req, res) => {
   try {
     const { link_id, cf_link_id, status } = req.query;
-    
-    console.log('📥 Payment Callback:', { link_id, cf_link_id, status });
-    
+
+    console.log("📥 Payment Callback:", { link_id, cf_link_id, status });
+
     // Check payment status from Cashfree
     const { baseUrl, appId, secretKey } = getCashfreeConfig();
-    const isSandbox = baseUrl.includes('sandbox');
-    const statusUrl = isSandbox 
+    const isSandbox = baseUrl.includes("sandbox");
+    const statusUrl = isSandbox
       ? `https://sandbox.cashfree.com/pg/links/${link_id}`
       : `https://api.cashfree.com/pg/links/${link_id}`;
-    
-    let paymentStatus = 'PENDING';
+
+    let paymentStatus = "PENDING";
     let linkDetails = null;
-    
+
     try {
       const response = await fetch(statusUrl, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'x-client-id': appId,
-          'x-client-secret': secretKey,
-          'x-api-version': '2023-08-01'
-        }
+          "x-client-id": appId,
+          "x-client-secret": secretKey,
+          "x-api-version": "2023-08-01",
+        },
       });
       linkDetails = await response.json();
-      paymentStatus = linkDetails.link_status || 'UNKNOWN';
-      console.log('📊 Link Status:', linkDetails);
+      paymentStatus = linkDetails.link_status || "UNKNOWN";
+      console.log("📊 Link Status:", linkDetails);
     } catch (err) {
-      console.error('Error fetching link status:', err);
+      console.error("Error fetching link status:", err);
     }
-    
-    const isSuccess = paymentStatus === 'PAID';
-    
+
+    const isSuccess = paymentStatus === "PAID";
+
     // Return a nice HTML page
     res.send(`
       <!DOCTYPE html>
       <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment ${isSuccess ? 'Successful' : 'Status'}</title>
+        <title>Payment ${isSuccess ? "Successful" : "Status"}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, ${isSuccess ? '#10B981' : '#6366F1'} 0%, ${isSuccess ? '#059669' : '#4F46E5'} 100%);
+            background: linear-gradient(135deg, ${isSuccess ? "#10B981" : "#6366F1"} 0%, ${isSuccess ? "#059669" : "#4F46E5"} 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -238,7 +458,7 @@ router.get('/callback', async (req, res) => {
             width: 80px;
             height: 80px;
             border-radius: 50%;
-            background: ${isSuccess ? '#10B981' : '#F59E0B'}20;
+            background: ${isSuccess ? "#10B981" : "#F59E0B"}20;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -260,8 +480,8 @@ router.get('/callback', async (req, res) => {
             border-radius: 9999px;
             font-weight: 600;
             font-size: 14px;
-            background: ${isSuccess ? '#10B981' : '#F59E0B'}20;
-            color: ${isSuccess ? '#059669' : '#D97706'};
+            background: ${isSuccess ? "#10B981" : "#F59E0B"}20;
+            color: ${isSuccess ? "#059669" : "#D97706"};
             margin-bottom: 24px;
           }
           .details {
@@ -300,22 +520,26 @@ router.get('/callback', async (req, res) => {
       </head>
       <body>
         <div class="card">
-          <div class="icon">${isSuccess ? '✅' : '⏳'}</div>
-          <h1>${isSuccess ? 'Payment Successful!' : 'Payment ' + paymentStatus}</h1>
-          <p>${isSuccess ? 'Your transaction has been completed.' : 'Please check your payment status.'}</p>
+          <div class="icon">${isSuccess ? "✅" : "⏳"}</div>
+          <h1>${isSuccess ? "Payment Successful!" : "Payment " + paymentStatus}</h1>
+          <p>${isSuccess ? "Your transaction has been completed." : "Please check your payment status."}</p>
           <div class="status">${paymentStatus}</div>
           <div class="details">
             <div class="details-row">
               <span class="details-label">Reference ID</span>
-              <span class="details-value">${link_id || 'N/A'}</span>
+              <span class="details-value">${link_id || "N/A"}</span>
             </div>
-            ${linkDetails?.link_amount ? `
+            ${
+              linkDetails?.link_amount
+                ? `
             <div class="details-row">
               <span class="details-label">Amount</span>
               <span class="details-value">₹${linkDetails.link_amount}</span>
-            </div>` : ''}
+            </div>`
+                : ""
+            }
           </div>
-          <a href="securepayflow://callback?status=${paymentStatus}&link_id=${link_id}" class="btn">
+          <a href="kavach://callback?status=${paymentStatus}&link_id=${link_id}" class="btn">
             Return to App
           </a>
           <p class="note">You can close this window and return to the app.</p>
@@ -323,15 +547,14 @@ router.get('/callback', async (req, res) => {
       </body>
       </html>
     `);
-    
   } catch (error) {
-    console.error('Callback Error:', error);
+    console.error("Callback Error:", error);
     res.status(500).send(`
       <html>
       <body style="font-family: sans-serif; text-align: center; padding: 50px;">
         <h1>❌ Error</h1>
         <p>Something went wrong. Please return to the app.</p>
-        <a href="securepayflow://callback?status=ERROR">Return to App</a>
+        <a href="kavach://callback?status=ERROR">Return to App</a>
       </body>
       </html>
     `);
@@ -341,29 +564,29 @@ router.get('/callback', async (req, res) => {
 /**
  * POST /api/payment/webhook
  * Webhook endpoint to receive payment status updates from Cashfree
- * 
+ *
  * Cashfree will POST to this endpoint when payment status changes
  */
-router.post('/webhook', async (req, res) => {
+router.post("/webhook", async (req, res) => {
   try {
     const webhookData = req.body;
     const { secretKey } = getCashfreeConfig();
 
-    console.log('Payment Webhook Received:', webhookData);
+    console.log("Payment Webhook Received:", webhookData);
 
     // Verify webhook signature (important for security)
-    const signature = req.headers['x-webhook-signature'];
-    const timestamp = req.headers['x-webhook-timestamp'];
-    
+    const signature = req.headers["x-webhook-signature"];
+    const timestamp = req.headers["x-webhook-timestamp"];
+
     if (signature && timestamp) {
       const computedSignature = crypto
-        .createHmac('sha256', secretKey)
+        .createHmac("sha256", secretKey)
         .update(`${timestamp}${JSON.stringify(webhookData)}`)
-        .digest('base64');
-      
+        .digest("base64");
+
       if (signature !== computedSignature) {
-        console.error('Invalid webhook signature');
-        return res.status(401).json({ message: 'Invalid signature' });
+        console.error("Invalid webhook signature");
+        return res.status(401).json({ message: "Invalid signature" });
       }
     }
 
@@ -375,7 +598,7 @@ router.post('/webhook', async (req, res) => {
       payment_time,
       cf_payment_id, // Reference ID from Cashfree
       payment_method,
-      payment_group // UPI
+      payment_group, // UPI
     } = webhookData.data || webhookData;
 
     // TODO: Update your database with payment status
@@ -385,9 +608,8 @@ router.post('/webhook', async (req, res) => {
 
     // Send success response to Cashfree
     res.json({ success: true });
-
   } catch (error) {
-    console.error('Webhook Error:', error);
+    console.error("Webhook Error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -396,20 +618,20 @@ router.post('/webhook', async (req, res) => {
  * GET /api/payment/verify/:orderId
  * Verify payment status by querying Cashfree API
  */
-router.get('/verify/:orderId', async (req, res) => {
+router.get("/verify/:orderId", async (req, res) => {
   try {
     const { orderId } = req.params;
     const { baseUrl, appId, secretKey } = getCashfreeConfig();
 
     // Query Cashfree API for order status
     const response = await fetch(`${baseUrl}/orders/${orderId}`, {
-      method: 'GET',
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
-        'x-client-id': appId,
-        'x-client-secret': secretKey,
-        'x-api-version': '2023-08-01'
-      }
+        "Content-Type": "application/json",
+        "x-client-id": appId,
+        "x-client-secret": secretKey,
+        "x-api-version": "2023-08-01",
+      },
     });
 
     const result = await response.json();
@@ -417,36 +639,35 @@ router.get('/verify/:orderId', async (req, res) => {
     if (!response.ok) {
       return res.status(response.status).json({
         success: false,
-        message: 'Failed to verify payment',
-        error: result
+        message: "Failed to verify payment",
+        error: result,
       });
     }
 
     // Map Cashfree status to our app status
     const statusMap = {
-      'PAID': 'SUCCESS',
-      'ACTIVE': 'PENDING',
-      'EXPIRED': 'FAILED',
-      'CANCELLED': 'FAILED',
-      'FAILED': 'FAILED'
+      PAID: "SUCCESS",
+      ACTIVE: "PENDING",
+      EXPIRED: "FAILED",
+      CANCELLED: "FAILED",
+      FAILED: "FAILED",
     };
 
     res.json({
       success: true,
       orderId: result.order_id,
       amount: result.order_amount,
-      status: statusMap[result.order_status] || 'PENDING',
+      status: statusMap[result.order_status] || "PENDING",
       referenceId: result.cf_order_id,
       paymentMethod: result.payment_method,
-      timestamp: result.payment_completion_time || result.created_at
+      timestamp: result.payment_completion_time || result.created_at,
     });
-
   } catch (error) {
-    console.error('Verify Payment Error:', error);
+    console.error("Verify Payment Error:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 });
@@ -455,7 +676,7 @@ router.get('/verify/:orderId', async (req, res) => {
  * POST /api/payment/process-upi
  * Process UPI payment (alternative flow if using SDK)
  */
-router.post('/process-upi', async (req, res) => {
+router.post("/process-upi", async (req, res) => {
   try {
     const { orderId, upiId, upiApp } = req.body;
 
@@ -467,16 +688,15 @@ router.post('/process-upi', async (req, res) => {
     // For now, return a mock response
     res.json({
       success: true,
-      message: 'UPI payment initiated',
+      message: "UPI payment initiated",
       orderId: orderId,
-      upiLink: `upi://pay?pa=${upiId}&pn=SecurePayFlow&am=${100}&cu=INR&tn=Payment`
+      upiLink: `upi://pay?pa=${upiId}&pn=SecurePayFlow&am=${100}&cu=INR&tn=Payment`,
     });
-
   } catch (error) {
-    console.error('Process UPI Error:', error);
+    console.error("Process UPI Error:", error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -518,7 +738,7 @@ router.post("/send", async (req, res) => {
       contactName: contactName || "",
       note: note || "",
       status: "success",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     // Save result for idempotency
@@ -527,7 +747,6 @@ router.post("/send", async (req, res) => {
     console.log("💸 Payment processed:", response);
 
     return res.json(response);
-
   } catch (err) {
     console.error("❌ /api/payment/send error:", err);
     return res.status(500).json({ error: "Payment failed" });

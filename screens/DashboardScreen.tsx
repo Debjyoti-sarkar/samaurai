@@ -187,6 +187,26 @@ export default function DashboardScreen() {
           />
         </Animated.View>
 
+        {/* SECONDARY ACTIONS */}
+        <Animated.View entering={FadeInDown.delay(350)} style={[styles.actionsGrid, { marginTop: 0 }]}>
+          <ActionIcon 
+            icon="plus-square" label="Gen QR" color={theme.text} 
+            onPress={() => { speak("Generate QR Code"); navigation.navigate("GenerateQR"); }} 
+          />
+          <ActionIcon 
+            icon="wifi-off" label="Offline OTP" color={theme.text} 
+            onPress={() => { speak("Offline OTP"); navigation.navigate("OfflineOtp"); }} 
+          />
+          <ActionIcon 
+            icon="briefcase" label="Loans" color={theme.text} 
+            onPress={() => { speak("Loans"); navigation.navigate("LoanDashboard"); }} 
+          />
+          <ActionIcon 
+            icon="message-square" label="Spam Check" color={theme.text} 
+            onPress={() => { speak("Spam Detection"); navigation.navigate("SpamDetection"); }} 
+          />
+        </Animated.View>
+
         {/* SECURITY HUB */}
         <Animated.View entering={FadeInDown.delay(400)} style={styles.section}>
           <ThemedText type="h4" style={styles.sectionTitle}>Security Hub</ThemedText>
@@ -211,6 +231,19 @@ export default function DashboardScreen() {
               <View style={styles.hubText}>
                 <ThemedText type="body" style={{ fontWeight: '600', color: theme.text }}>Behavior Analytics</ThemedText>
                 <ThemedText type="caption" style={{ color: theme.textSecondary }}>Monitor your app usage safety</ThemedText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </Pressable>
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <Pressable style={styles.hubRow} onPress={() => navigation.navigate("OtpFraudScanner")}>
+              <View style={[styles.hubIcon, { backgroundColor: KAVACHColors.warning + '20' }]}>
+                <Feather name="alert-triangle" size={20} color={KAVACHColors.warning} />
+              </View>
+              <View style={styles.hubText}>
+                <ThemedText type="body" style={{ fontWeight: '600', color: theme.text }}>OTP Fraud Scanner</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary }}>Detect fraudulent OTP messages</ThemedText>
               </View>
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </Pressable>

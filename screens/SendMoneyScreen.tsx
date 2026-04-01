@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
-import { View, StyleSheet, TextInput, Pressable, Alert, GestureResponderEvent, ScrollView } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TextInput,
+  Pressable,
+  Alert,
+  GestureResponderEvent,
+  ScrollView,
+} from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -25,7 +33,10 @@ import {
 } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootNavigator";
 
-import { createPaymentOrder } from "@/services/paymentGateway";
+import { createPaymentOrder, isValidUpiId } from "@/services/paymentGateway";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { RiskModal, RiskLevel } from "@/components/RiskModal";
 
 // NEW IMPORT (added)
 import { speak } from "../utils/speak";
@@ -44,7 +55,7 @@ function ContactCard({
   isSelected,
   onSelect,
 }: {
-  contact: typeof RECENT_CONTACTS[0];
+  contact: (typeof RECENT_CONTACTS)[0];
   isSelected: boolean;
   onSelect: () => void;
 }) {
@@ -76,15 +87,22 @@ function ContactCard({
       ]}
     >
       <View
-        style={[styles.avatar, { backgroundColor: KAVACHColors.primary + "30" }]}
+        style={[
+          styles.avatar,
+          { backgroundColor: KAVACHColors.primary + "30" },
+        ]}
       >
-        <ThemedText style={[styles.avatarText, { color: KAVACHColors.primary }]}>
+        <ThemedText
+          style={[styles.avatarText, { color: KAVACHColors.primary }]}
+        >
           {contact.avatar}
         </ThemedText>
       </View>
 
       <View style={styles.contactInfo}>
-        <ThemedText style={[styles.contactName, { textAlign: 'center'}]}>{contact.name.split(' ')[0]}</ThemedText>
+        <ThemedText style={[styles.contactName, { textAlign: "center" }]}>
+          {contact.name.split(" ")[0]}
+        </ThemedText>
       </View>
 
       {isSelected ? (
@@ -122,7 +140,7 @@ export default function SendMoneyScreen() {
   // Track screen visit on mount
   useEffect(() => {
     if (isSessionActive) {
-      trackScreenVisit('SendMoney');
+      trackScreenVisit("SendMoney");
     }
   }, [isSessionActive]);
 
@@ -132,12 +150,12 @@ export default function SendMoneyScreen() {
   };
 
   // Handle tap end with tracking
-  const handleTapEnd = (e: GestureResponderEvent, zone: string = 'active') => {
+  const handleTapEnd = (e: GestureResponderEvent, zone: string = "active") => {
     if (isSessionActive) {
       const { locationX, locationY } = e.nativeEvent;
       const duration = Date.now() - tapStartTime.current;
-      trackTap('SendMoney', locationX, locationY, zone);
-      trackTapDuration('SendMoney', duration);
+      trackTap("SendMoney", locationX, locationY, zone);
+      trackTapDuration("SendMoney", duration);
     }
   };
 
@@ -147,34 +165,51 @@ export default function SendMoneyScreen() {
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [contactName, setContactName] = useState(route.params?.contactName || "");
+  const [contactName, setContactName] = useState(
+    route.params?.contactName || "",
+  );
+  
+  const [isRiskModalVisible, setIsRiskModalVisible] = useState(false);
+  const [riskData, setRiskData] = useState<{ risk: RiskLevel; score: number; reasons: string[] }>({
+    risk: "LOW",
+    score: 0,
+    reasons: [],
+  });
 
   // Auto-match recipient name to contact and select it
   useEffect(() => {
     if (route.params?.recipient) {
       const recipientText = route.params.recipient.toLowerCase();
-      
+
       // First check if it's already a UPI ID
-      if (recipientText.includes('@')) {
+      if (recipientText.includes("@")) {
         setRecipient(route.params.recipient);
         // Try to find matching contact
-        const match = RECENT_CONTACTS.find(c => c.upiId.toLowerCase() === recipientText);
+        const match = RECENT_CONTACTS.find(
+          (c) => c.upiId.toLowerCase() === recipientText,
+        );
         if (match) {
           setSelectedContact(match.id);
           setContactName(match.name);
         }
       } else {
         // Try to match by name
-        const match = RECENT_CONTACTS.find(c => 
-          c.name.toLowerCase().includes(recipientText) ||
-          c.name.toLowerCase().split(' ').some(part => part.startsWith(recipientText))
+        const match = RECENT_CONTACTS.find(
+          (c) =>
+            c.name.toLowerCase().includes(recipientText) ||
+            c.name
+              .toLowerCase()
+              .split(" ")
+              .some((part) => part.startsWith(recipientText)),
         );
-        
+
         if (match) {
           setSelectedContact(match.id);
           setRecipient(match.upiId);
           setContactName(match.name);
-          console.log(`✅ Auto-matched "${route.params.recipient}" to ${match.name} (${match.upiId})`);
+          console.log(
+            `✅ Auto-matched "${route.params.recipient}" to ${match.name} (${match.upiId})`,
+          );
         } else {
           // No match found, use as-is
           setRecipient(route.params.recipient);
@@ -186,33 +221,129 @@ export default function SendMoneyScreen() {
   }, [route.params]);
 
   // ✅ UPDATED: new voice‑enabled version
-  const handleContactSelect = (contact: typeof RECENT_CONTACTS[0]) => {
+  const handleContactSelect = (contact: (typeof RECENT_CONTACTS)[0]) => {
     setSelectedContact(contact.id);
     setRecipient(contact.upiId);
 
     const spokenText = `${contact.name}, U P I I D: ${contact.upiId.replace(
       /[@.]/g,
-      " "
+      " ",
     )}`;
 
     speak(spokenText, language);
   };
 
-  const handleReviewPayment = () => {
+  const handleReviewPayment = async () => {
     if (!recipient || !amount) {
       Alert.alert("Missing Information", "Please enter recipient and amount");
       return;
     }
+
+    if (!isValidUpiId(recipient)) {
+      Alert.alert(
+        "Invalid UPI ID",
+        "Enter a valid UPI ID like name@bank to send money to a real recipient.",
+      );
+      return;
+    }
+
+    if (Number(amount) <= 0) {
+      Alert.alert("Invalid Amount", "Enter an amount greater than zero.");
+      return;
+    }
+
+    // Call Kavach Shield Risk API
+    try {
+      setIsProcessing(true);
+      
+      const payload = {
+        value: recipient,
+        amount: Number(amount),
+        isFirstTransaction: true, 
+      };
+
+      // Check local blacklist first
+      const flaggedStr = await AsyncStorage.getItem("KAVACH_FLAGGED_UPIS");
+      const flaggedUpis = flaggedStr ? JSON.parse(flaggedStr) : [];
+      let isLocalFlagged = flaggedUpis.includes(recipient.toLowerCase());
+
+      // Fetch from backend
+      // Using a relative/configurable URL depending on env. Localhost for now, assuming standard API base
+      // NOTE: use standard localhost mapping for android emulator (10.0.2.2) or IP for physical device
+      // We will fallback to a generic network call if possible
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+      
+      // Let's use a try block for the fetch to avoid crashing if backend is offline
+      let finalRisk = "LOW";
+      let finalScore = 0;
+      let finalReasons: string[] = [];
+
+      try {
+        const response = await fetch(`${API_URL}/api/check-risk`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          finalRisk = data.risk;
+          finalScore = data.score;
+          finalReasons = data.reasons || [];
+        }
+      } catch (fetchErr) {
+        console.warn("Backend not reachable, relying solely on local blacklist");
+      }
+      
+      if (isLocalFlagged && finalRisk !== "HIGH") {
+        finalRisk = "HIGH";
+        finalScore = Math.max(finalScore, 90);
+        finalReasons = ["Previously flagged locally as suspicious", ...finalReasons];
+      }
+
+      if (finalRisk === "HIGH" || finalRisk === "MEDIUM") {
+        setRiskData({ risk: finalRisk as RiskLevel, score: finalScore, reasons: finalReasons });
+        setIsRiskModalVisible(true);
+      } else {
+        setShowConfirmation(true);
+      }
+    } catch (error) {
+      console.warn("Risk check failed, falling back to confirmation", error);
+      setShowConfirmation(true); 
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRiskContinue = async () => {
+    setIsRiskModalVisible(false);
+    
+    // Save to flagged list if it was a HIGH risk that we bypassed
+    if (riskData.risk === "HIGH" || riskData.risk === "MEDIUM") {
+      try {
+        const flaggedStr = await AsyncStorage.getItem("KAVACH_FLAGGED_UPIS");
+        const flaggedUpis = flaggedStr ? JSON.parse(flaggedStr) : [];
+        if (!flaggedUpis.includes(recipient.toLowerCase())) {
+           flaggedUpis.push(recipient.toLowerCase());
+           await AsyncStorage.setItem("KAVACH_FLAGGED_UPIS", JSON.stringify(flaggedUpis));
+        }
+      } catch (err) {
+        console.warn("Failed to save flagged UPI", err);
+      }
+    }
+
     setShowConfirmation(true);
   };
 
   const handleConfirmPayment = async () => {
     const amountValue = parseFloat(amount);
-    const payload = { 
-      amount: amountValue, 
-      recipient, 
+    const payload = {
+      amount: amountValue,
+      recipient,
       note: note || "from-app",
-      contactName 
+      contactName,
     };
 
     try {
@@ -235,7 +366,7 @@ export default function SendMoneyScreen() {
         Alert.alert(
           "Transaction Saved",
           "No internet connection. Transaction saved and will be processed automatically when you're back online.",
-          [{ text: "OK", onPress: () => navigation.goBack() }]
+          [{ text: "OK", onPress: () => navigation.goBack() }],
         );
         return;
       }
@@ -244,10 +375,15 @@ export default function SendMoneyScreen() {
       const paymentOrder = await createPaymentOrder(
         amountValue,
         recipient,
-        note || undefined
+        note || undefined,
       );
 
-      navigation.navigate("PaymentProcessing", { paymentOrder });
+      navigation.navigate("PaymentProcessing", {
+        paymentOrder: {
+          ...paymentOrder,
+          contactName: contactName || undefined,
+        },
+      });
     } catch (error) {
       // NexaSafe: Mark transaction end on error too
       trackTransactionEnd();
@@ -262,14 +398,12 @@ export default function SendMoneyScreen() {
         Alert.alert(
           "Transaction Saved",
           "Could not process now. Transaction saved and will be retried automatically.",
-          [{ text: "OK", onPress: () => navigation.goBack() }]
+          [{ text: "OK", onPress: () => navigation.goBack() }],
         );
       } else {
-        Alert.alert(
-          "Error",
-          "Failed to initiate payment. Please try again.",
-          [{ text: "OK" }]
-        );
+        Alert.alert("Error", "Failed to initiate payment. Please try again.", [
+          { text: "OK" },
+        ]);
       }
     } finally {
       setIsProcessing(false);
@@ -324,7 +458,10 @@ export default function SendMoneyScreen() {
               <>
                 <View style={styles.confirmDivider} />
                 <View style={styles.confirmRow}>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  <ThemedText
+                    type="small"
+                    style={{ color: theme.textSecondary }}
+                  >
                     Note
                   </ThemedText>
                   <ThemedText>{note}</ThemedText>
@@ -364,10 +501,14 @@ export default function SendMoneyScreen() {
           type="small"
           style={[styles.sectionLabel, { color: theme.textSecondary }]}
         >
-          Recent Contacts
+          Sample Contacts
         </ThemedText>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.contactsGrid}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.contactsGrid}
+        >
           {RECENT_CONTACTS.map((contact) => (
             <ContactCard
               key={contact.id}
@@ -413,6 +554,14 @@ export default function SendMoneyScreen() {
             autoCapitalize="none"
           />
         </View>
+
+        <ThemedText
+          type="small"
+          style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+        >
+          Enter the exact UPI ID of the person you want to pay, for example
+          `name@bank`.
+        </ThemedText>
 
         <Pressable
           onPress={() => navigation.navigate("QRScanner")}
@@ -479,18 +628,35 @@ export default function SendMoneyScreen() {
         />
       </Animated.View>
 
-      <Animated.View entering={FadeInDown.delay(500)} style={{ flex: 1, paddingBottom: 60, justifyContent: "flex-end", minHeight: 120 }}>
+      <Animated.View
+        entering={FadeInDown.delay(500)}
+        style={{
+          flex: 1,
+          paddingBottom: 60,
+          justifyContent: "flex-end",
+          minHeight: 120,
+        }}
+      >
         <Button
           onPress={handleReviewPayment}
-          disabled={!recipient || !amount}
+          disabled={!recipient || !amount || isProcessing}
           style={{
             backgroundColor: KAVACHColors.primary,
             marginTop: Spacing.xl,
           }}
         >
-          {t("reviewPayment")}
+          {isProcessing ? "Checking Securely..." : t("reviewPayment")}
         </Button>
       </Animated.View>
+
+      <RiskModal
+        visible={isRiskModalVisible}
+        risk={riskData.risk}
+        score={riskData.score}
+        reasons={riskData.reasons}
+        onContinue={handleRiskContinue}
+        onCancel={() => setIsRiskModalVisible(false)}
+      />
     </ScreenKeyboardAwareScrollView>
   );
 }

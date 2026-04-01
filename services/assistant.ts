@@ -1,5 +1,46 @@
-// Your backend is running on PORT 3001 (NOT 3000)
-export const BASE_URL = "https://curvy-sides-carry.loca.lt";
+import Constants from "expo-constants";
+import { Platform } from "react-native";
+
+type ExpoExtraConfig = {
+  assistantBaseUrl?: string;
+};
+
+function normalizeBaseUrl(url?: string | null): string | null {
+  if (!url) return null;
+  return url.replace(/\/+$/, "");
+}
+
+function getExpoHostUrl(): string | null {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any)?.manifest2?.extra?.expoClient?.hostUri ||
+    (Constants as any)?.manifest?.debuggerHost;
+
+  if (!hostUri || typeof hostUri !== "string") return null;
+
+  const host = hostUri.split(":")[0];
+  if (!host) return null;
+
+  return `http://${host}:3001`;
+}
+
+function resolveBaseUrl(): string {
+  const extra = (Constants.expoConfig?.extra || {}) as ExpoExtraConfig;
+
+  const configuredUrl = normalizeBaseUrl(
+    process.env.EXPO_PUBLIC_ASSISTANT_BASE_URL || extra.assistantBaseUrl
+  );
+  if (configuredUrl) return configuredUrl;
+
+  const expoHostUrl = normalizeBaseUrl(getExpoHostUrl());
+  if (expoHostUrl) return expoHostUrl;
+
+  if (Platform.OS === "android") return "http://10.0.2.2:3001";
+  return "http://localhost:3001";
+}
+
+export const BASE_URL = resolveBaseUrl();
+export const BACKEND_URL = BASE_URL;
 
 export const TRANSCRIBE_URL = BASE_URL + "/assistant/transcribe";
 export const PARSE_URL = BASE_URL + "/assistant/parse";

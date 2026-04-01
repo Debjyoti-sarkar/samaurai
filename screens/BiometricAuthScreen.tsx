@@ -37,10 +37,10 @@ export default function BiometricAuthScreen({ navigation, route }) {
         setIsEnrolled(enrolled);
 
         const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-          setBiometricType("Face ID");
-        } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+        if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
           setBiometricType("Fingerprint");
+        } else if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+          setBiometricType("Face ID");
         } else {
           setBiometricType("Biometric");
         }

@@ -1,28 +1,73 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
   StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-  Image,
+  View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import { Ionicons } from "@expo/vector-icons";
 
-const API_URL = "http://localhost:5000/api";
+const USER_KEY = "@kavach_user";
 
-export default function GenerateQRScreen({ navigation }) {
+type LocalUserInfo = {
+  phoneNumber?: string;
+  bankName?: string;
+  bankAccountMasked?: string;
+  upiId?: string;
+  name?: string;
+};
+
+function buildQrImageUrl(data: string) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}`;
+}
+
+function buildUpiPayload({
+  upiId,
+  name,
+  amount,
+  note,
+}: {
+  upiId: string;
+  name: string;
+  amount?: string;
+  note?: string;
+}) {
+  const params = new URLSearchParams({
+    pa: upiId,
+    pn: name,
+    cu: "INR",
+  });
+
+  if (amount?.trim()) {
+    params.set("am", String(Number(amount)));
+  }
+
+  if (note?.trim()) {
+    params.set("tn", note.trim());
+  }
+
+  return `upi://pay?${params.toString()}`;
+}
+
+function isValidUpiId(upiId: string) {
+  return /^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/i.test(upiId.trim());
+}
+
+export default function GenerateQRScreen() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [userInfo, setUserInfo] = useState(null);
-  const [qrCode, setQrCode] = useState(null);
+  const [upiId, setUpiId] = useState("");
+  const [userInfo, setUserInfo] = useState<LocalUserInfo | null>(null);
+  const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [savingUpi, setSavingUpi] = useState(false);
 
   useEffect(() => {
     fetchUserInfo();
@@ -30,12 +75,14 @@ export default function GenerateQRScreen({ navigation }) {
 
   const fetchUserInfo = async () => {
     try {
-      const token = await AsyncStorage.getItem("authToken");
-      const response = await axios.get(`${API_URL}/user/profile`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      setUserInfo(response.data);
+      const rawUser = await AsyncStorage.getItem(USER_KEY);
+      const parsedUser = rawUser ? (JSON.parse(rawUser) as LocalUserInfo) : {};
+      const normalizedUser = {
+        ...parsedUser,
+        name: parsedUser?.name || "KAVACH User",
+      };
+      setUserInfo(normalizedUser);
+      setUpiId(normalizedUser.upiId || "");
     } catch (error) {
       console.error("Fetch user error:", error);
       Alert.alert("Error", "Failed to fetch user information");
@@ -44,33 +91,74 @@ export default function GenerateQRScreen({ navigation }) {
     }
   };
 
+  const saveUpiId = async () => {
+    const trimmedUpi = upiId.trim().toLowerCase();
+
+    if (!trimmedUpi) {
+      Alert.alert("Missing UPI ID", "Please enter your UPI ID");
+      return false;
+    }
+
+    if (!isValidUpiId(trimmedUpi)) {
+      Alert.alert("Invalid UPI ID", "Enter a valid UPI ID like name@bank");
+      return false;
+    }
+
+    setSavingUpi(true);
+    try {
+      const updatedUser: LocalUserInfo = {
+        ...(userInfo || {}),
+        upiId: trimmedUpi,
+        name: userInfo?.name || "KAVACH User",
+      };
+      await AsyncStorage.setItem(USER_KEY, JSON.stringify(updatedUser));
+      setUserInfo(updatedUser);
+      setUpiId(trimmedUpi);
+      Alert.alert("Success", "UPI ID saved successfully");
+      return true;
+    } catch (error) {
+      console.error("Save UPI ID error:", error);
+      Alert.alert("Error", "Failed to save UPI ID");
+      return false;
+    } finally {
+      setSavingUpi(false);
+    }
+  };
+
+  const effectiveUpiId = useMemo(
+    () => (userInfo?.upiId || upiId).trim().toLowerCase(),
+    [upiId, userInfo?.upiId],
+  );
+
   const generateQR = async () => {
-    if (!userInfo?.upiId) {
+    if (!effectiveUpiId) {
       Alert.alert("Error", "Please set up your UPI ID first");
-      navigation.navigate("ProfileSettings");
       return;
+    }
+
+    if (!isValidUpiId(effectiveUpiId)) {
+      Alert.alert("Invalid UPI ID", "Enter a valid UPI ID like name@bank");
+      return;
+    }
+
+    if (
+      upiId.trim() &&
+      upiId.trim().toLowerCase() !== (userInfo?.upiId || "").toLowerCase()
+    ) {
+      const saved = await saveUpiId();
+      if (!saved) return;
     }
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem("authToken");
+      const upiPayload = buildUpiPayload({
+        upiId: effectiveUpiId,
+        name: userInfo?.name || "KAVACH User",
+        amount,
+        note,
+      });
 
-      const payload = {
-        amount: amount ? parseFloat(amount) : undefined,
-        note: note || undefined,
-      };
-
-      const response = await axios.post(
-        `${API_URL}/qr/generate`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.success) {
-        setQrCode(response.data.qrCode);
-      } else {
-        Alert.alert("Error", "Failed to generate QR code");
-      }
+      setQrCode(buildQrImageUrl(upiPayload));
     } catch (error) {
       console.error("QR generation error:", error);
       Alert.alert("Error", "Failed to generate QR code");
@@ -93,26 +181,6 @@ export default function GenerateQRScreen({ navigation }) {
     );
   }
 
-  if (!userInfo?.upiId) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.emptyContainer}>
-          <Ionicons name="alert-circle" size={64} color="#F59E0B" />
-          <Text style={styles.emptyTitle}>UPI ID Not Set</Text>
-          <Text style={styles.emptyText}>
-            Please set up your UPI ID before generating QR codes
-          </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={() => navigation.navigate("ProfileSettings")}
-          >
-            <Text style={styles.buttonText}>Set Up UPI ID</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   if (qrCode) {
     return (
       <ScrollView style={styles.container}>
@@ -129,27 +197,31 @@ export default function GenerateQRScreen({ navigation }) {
             <View style={styles.qrInfo}>
               <View style={styles.qrInfoRow}>
                 <Text style={styles.qrInfoLabel}>UPI ID</Text>
-                <Text style={styles.qrInfoValue}>{userInfo.upiId}</Text>
+                <Text style={styles.qrInfoValue}>{effectiveUpiId}</Text>
               </View>
 
               <View style={styles.qrInfoRow}>
                 <Text style={styles.qrInfoLabel}>Name</Text>
-                <Text style={styles.qrInfoValue}>{userInfo.name}</Text>
+                <Text style={styles.qrInfoValue}>
+                  {userInfo?.name || "KAVACH User"}
+                </Text>
               </View>
 
-              {amount && (
+              {amount ? (
                 <View style={styles.qrInfoRow}>
                   <Text style={styles.qrInfoLabel}>Amount</Text>
-                  <Text style={styles.qrInfoValue}>₹{parseFloat(amount).toLocaleString()}</Text>
+                  <Text style={styles.qrInfoValue}>
+                    Rs {parseFloat(amount).toLocaleString("en-IN")}
+                  </Text>
                 </View>
-              )}
+              ) : null}
 
-              {note && (
+              {note ? (
                 <View style={styles.qrInfoRow}>
                   <Text style={styles.qrInfoLabel}>Note</Text>
                   <Text style={styles.qrInfoValue}>{note}</Text>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
 
@@ -161,8 +233,8 @@ export default function GenerateQRScreen({ navigation }) {
           <View style={styles.instructionsBox}>
             <Ionicons name="information-circle" size={24} color="#6366F1" />
             <Text style={styles.instructionsText}>
-              Show this QR code to receive payments. Anyone can scan this code to
-              pay you {amount ? `₹${amount}` : "any amount"}.
+              Show this QR code to receive payments. Anyone can scan it to pay
+              you {amount ? `Rs ${amount}` : "any amount"}.
             </Text>
           </View>
         </View>
@@ -184,13 +256,41 @@ export default function GenerateQRScreen({ navigation }) {
         <View style={styles.userHeader}>
           <Ionicons name="person-circle" size={48} color="#6366F1" />
           <View style={styles.userDetails}>
-            <Text style={styles.userName}>{userInfo.name}</Text>
-            <Text style={styles.userUPI}>{userInfo.upiId}</Text>
+            <Text style={styles.userName}>
+              {userInfo?.name || "KAVACH User"}
+            </Text>
+            <Text style={styles.userUPI}>
+              {effectiveUpiId || "Set your UPI ID below"}
+            </Text>
           </View>
         </View>
       </View>
 
       <View style={styles.form}>
+        <Text style={styles.label}>Your UPI ID</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter your UPI ID (e.g. omkar@oksbi)"
+          value={upiId}
+          onChangeText={setUpiId}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <TouchableOpacity
+          style={[styles.saveButton, savingUpi && styles.saveButtonDisabled]}
+          onPress={saveUpiId}
+          disabled={savingUpi}
+        >
+          {savingUpi ? (
+            <ActivityIndicator color="#FFF" />
+          ) : (
+            <>
+              <Ionicons name="save-outline" size={20} color="#FFF" />
+              <Text style={styles.saveButtonText}>Save UPI ID</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
         <Text style={styles.label}>Amount (Optional)</Text>
         <TextInput
           style={styles.input}
@@ -247,7 +347,7 @@ export default function GenerateQRScreen({ navigation }) {
           <View style={styles.featureContent}>
             <Text style={styles.featureTitle}>Secure</Text>
             <Text style={styles.featureText}>
-              UPI standard QR codes with encrypted payment information
+              Standard UPI payment payload encoded in a QR code
             </Text>
           </View>
         </View>
@@ -257,7 +357,7 @@ export default function GenerateQRScreen({ navigation }) {
           <View style={styles.featureContent}>
             <Text style={styles.featureTitle}>Flexible</Text>
             <Text style={styles.featureText}>
-              Generate QR with or without amount, add custom notes
+              Generate QR with or without amount and add custom notes
             </Text>
           </View>
         </View>
@@ -352,6 +452,24 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     marginTop: 4,
   },
+  saveButton: {
+    backgroundColor: "#0F766E",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+  },
+  saveButtonText: {
+    color: "#FFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
   generateButton: {
     backgroundColor: "#6366F1",
     flexDirection: "row",
@@ -412,6 +530,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#111827",
+    flexShrink: 1,
+    textAlign: "right",
   },
   resetButton: {
     flexDirection: "row",
@@ -475,36 +595,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6B7280",
     lineHeight: 20,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#111827",
-    marginTop: 16,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 8,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-  button: {
-    backgroundColor: "#6366F1",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
-  },
-  buttonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
   },
 });

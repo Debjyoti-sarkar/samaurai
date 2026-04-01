@@ -38,6 +38,8 @@ export function useVoiceAgent() {
         navigation.navigate('QRScanner');
       } else if (response.actionSuggested === 'check_fraud') {
         navigation.navigate('FraudScan');
+      } else if (response.actionSuggested === 'help_support_page') {
+        navigation.navigate('HelpFaq');
       }
 
       return response;

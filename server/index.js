@@ -19,6 +19,7 @@ import smsFraudRouter from "./routes/smsfraud.js";
 import aadhaarRouter from "./routes/aadhaar.js";
 import ttsRouter from "./tts.js";
 import nexasafeRouter from "./routes/nexasafe-server.js"; // FIXED IMPORT
+import faceRouter from "./routes/face.js";
 
 // --------------------------------------
 // Resolve __dirname for ES modules
@@ -39,13 +40,14 @@ const deepgram = createClient(process.env.DEEPGRAM_API_KEY || "");
 // --------------------------------------
 // Connect MongoDB (optional for behavior)
 // --------------------------------------
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/kavach";
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/kavach";
 
 mongoose
   .connect(MONGODB_URI)
   .then(() => console.log("✅ Connected to MongoDB for Behavior Analysis"))
   .catch((err) =>
-    console.log("⚠️ MongoDB optional, continuing without DB:", err.message)
+    console.log("⚠️ MongoDB optional, continuing without DB:", err.message),
   );
 
 // --------------------------------------
@@ -96,6 +98,9 @@ app.use("/api/aadhaar", aadhaarRouter);
 // NexaSafe Router (FIXED)
 app.use("/api/nexasafe", nexasafeRouter);
 
+// Face enrollment + verification
+app.use("/api/face", faceRouter);
+
 // --------------------------------------
 // DEEPGRAM SPEECH-TO-TEXT (FREE TIER)
 // --------------------------------------
@@ -112,12 +117,13 @@ app.post("/assistant/transcribe", upload.single("audio"), async (req, res) => {
         model: "nova-2",
         language: "en",
         smart_format: true,
-      }
+      },
     );
 
     if (error) throw error;
 
-    const text = result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+    const text =
+      result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
     console.log("📝 Transcript from Deepgram:", text);
 
     res.json({ text });
@@ -150,7 +156,11 @@ app.post("/assistant/parse", (req, res) => {
   let actionSuggested = "none";
 
   // Simple intents
-  if (lower.includes("send") || lower.includes("pay") || lower.includes("transfer")) {
+  if (
+    lower.includes("send") ||
+    lower.includes("pay") ||
+    lower.includes("transfer")
+  ) {
     intent = "send_money";
     actionSuggested = "prefill_and_navigate_upi";
 
@@ -179,7 +189,7 @@ app.post("/assistant/parse", (req, res) => {
 
     console.log("💰 Extracted entities:", entities);
 
-    replyText = entities.recipient 
+    replyText = entities.recipient
       ? `Okay, sending ₹${entities.amount || "..."} to ${entities.recipient}.`
       : `Okay, sending ₹${entities.amount || ""}.`;
   }

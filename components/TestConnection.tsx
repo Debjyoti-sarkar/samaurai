@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { healthCheck, BACKEND_URL } from '../services/assistant';
+import { healthCheck, BASE_URL } from '../services/assistant';
 import { useTheme } from '../hooks/useTheme';
 
 // Helper to get colors with fallbacks  
@@ -46,7 +46,7 @@ export const TestConnection: React.FC<TestConnectionProps> = ({ onConnectionResu
       
       Alert.alert(
         'Connection Failed',
-        `Could not connect to backend at ${BACKEND_URL}\n\nMake sure the server is running.`,
+        `Could not connect to backend at ${BASE_URL}\n\nMake sure the server is running.`,
         [{ text: 'OK' }]
       );
     }
@@ -105,7 +105,7 @@ export const TestConnection: React.FC<TestConnectionProps> = ({ onConnectionResu
         </Text>
       ) : (
         <Text style={[styles.hint, { color: colors.textSecondary || '#888' }]}>
-          Backend: {BACKEND_URL}
+          Backend: {BASE_URL}
         </Text>
       )}
     </View>

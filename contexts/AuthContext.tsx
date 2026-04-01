@@ -16,6 +16,7 @@ interface UserData {
   bankAccountMasked: string;
   pin: string;
   biometricEnabled: boolean;
+  customFaceEnabled: boolean;
   aadhaarLinked: boolean;
 }
 
@@ -30,6 +31,7 @@ interface AuthContextType {
   linkBank: (bankName: string, accountNumber: string) => Promise<void>;
   setupPin: (pin: string) => Promise<void>;
   enableBiometric: (enabled: boolean) => Promise<void>;
+  enableCustomFace: (enabled: boolean) => Promise<void>;
   linkAadhaar: () => Promise<void>;
   login: () => Promise<void>;
   logout: () => Promise<void>;
@@ -120,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       bankAccountMasked: "",
       pin: "",
       biometricEnabled: false,
+      customFaceEnabled: false,
       aadhaarLinked: false,
     };
     setUserData(user);
@@ -145,6 +148,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const enableBiometric = async (enabled: boolean) => {
     if (!userData) return;
     const newUser = { ...userData, biometricEnabled: enabled };
+    setUserData(newUser);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
+  };
+
+  const enableCustomFace = async (enabled: boolean) => {
+    if (!userData) return;
+    const newUser = { ...userData, customFaceEnabled: enabled };
     setUserData(newUser);
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
   };
@@ -255,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         linkBank,
         setupPin,
         enableBiometric,
+        enableCustomFace,
         linkAadhaar,
         login,
         logout,

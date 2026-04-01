@@ -28,6 +28,86 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/activity", require("./routes/activityRoutes"));
 app.use("/api/user", require("./routes/userRoutes"));
 
+// KAVACH Shield Fraud Risk Verification Endpoint
+app.post("/api/check-risk", (req, res) => {
+  try {
+    const { value, amount, isFirstTransaction } = req.body;
+    let score = 0;
+    let reasons = [];
+    
+    if (!value) {
+      return res.status(400).json({ error: "Missing value (UPI/Phone/Link)" });
+    }
+
+    const valueLower = value.toLowerCase();
+
+    // 1. Blacklist check
+    const blacklist = ["fraud@upi", "scam@okaxis", "test@upi"];
+    if (blacklist.includes(valueLower)) {
+      score += 95;
+      reasons.push("Blacklisted UPI ID or Phone");
+      return res.json({ risk: "HIGH", score: Math.min(score, 100), reasons });
+    }
+
+    // 2. Invalid UPI Format
+    // We assume if it's less than 10 chars without '@', it could be a weird ID. 
+    // The prompt says "no '@' -> +50"
+    if (!valueLower.includes("@") && valueLower.length > 0) {
+      // It might be a phone number if it's 10 digits without '@'. But we'll follow the exact rule for now.
+      // If we want to be safe, we check if it's purely numerical phone. The prompt explicitly says invalid UPI format (no "@") -> +50
+      score += 50;
+      reasons.push("Invalid UPI format (missing '@')");
+    }
+
+    // 3. Suspicious keywords
+    const suspiciousKeywords = ["fraud", "test", "support", "help", "refund", "bank"];
+    const hasSuspiciousKeyword = suspiciousKeywords.some(keyword => valueLower.includes(keyword));
+    if (hasSuspiciousKeyword) {
+      score += 30;
+      reasons.push("Suspicious keywords in recipient ID");
+    }
+
+    // 4. Short ID
+    if (valueLower.length < 6) {
+      score += 20;
+      reasons.push("Very short recipient ID (<6 chars)");
+    }
+
+    // 5. First-time transaction
+    if (isFirstTransaction) {
+      score += 10;
+      reasons.push("First-time transaction with this recipient");
+    }
+
+    // 6. Large amount
+    if (amount && Number(amount) > 5000) {
+      score += 20;
+      reasons.push("Unusually large amount (> ₹5000)");
+    }
+    
+    // Optional: Placeholder for External API check
+    // async function checkExternalPhishingDB(id) { /* calls VirusTotal */ }
+    // const isExternalFlagged = await checkExternalPhishingDB(value);
+
+    // Calculate Risk Level
+    let risk = "LOW";
+    if (score >= 70) {
+      risk = "HIGH";
+    } else if (score >= 30) {
+      risk = "MEDIUM";
+    }
+
+    res.json({
+      risk,
+      score: Math.min(score, 100),
+      reasons
+    });
+  } catch (err) {
+    console.error("Risk check error: ", err);
+    res.status(500).json({ error: "Server error during risk check" });
+  }
+});
+
 // Health check
 app.get("/", (req, res) => {
   res.json({

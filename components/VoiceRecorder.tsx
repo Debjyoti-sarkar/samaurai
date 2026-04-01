@@ -257,9 +257,6 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, VoiceRecorderProps>(
         const res = await fetch(TRANSCRIBE_URL, {
           method: "POST",
           body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
         });
 
         if (!res.ok) {

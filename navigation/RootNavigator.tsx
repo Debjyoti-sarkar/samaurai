@@ -2,19 +2,17 @@ import React, { useEffect } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
-import { View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCommonScreenOptions } from "@/navigation/screenOptions";
-import { HeaderTitle } from "@/components/HeaderTitle";
-import { ThemedText } from "@/components/ThemedText";
 
 import LanguageSelectionScreen from "@/screens/LanguageSelectionScreen";
 import PhoneVerificationScreen from "@/screens/PhoneVerificationScreen";
 import BankLinkingScreen from "@/screens/BankLinkingScreen";
 import SecuritySetupScreen from "@/screens/SecuritySetupScreen";
+import FaceSetupScreen from "@/screens/FaceSetupScreen";
 import LoginScreen from "@/screens/LoginScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
 import SendMoneyScreen from "@/screens/SendMoneyScreen";
@@ -54,9 +52,12 @@ export type RootStackParamList = {
   PhoneVerification: undefined;
   BankLinking: undefined;
   SecuritySetup: undefined;
+  FaceSetup: undefined;
   Login: undefined;
   Dashboard: undefined;
-  SendMoney: { recipient?: string; amount?: string; contactName?: string } | undefined;
+  SendMoney:
+    | { recipient?: string; amount?: string; contactName?: string }
+    | undefined;
   ContactPicker: undefined;
   PaymentProcessing: { paymentOrder: PaymentOrder };
   QRScanner: undefined;
@@ -75,15 +76,17 @@ export type RootStackParamList = {
   TermsPrivacy: undefined;
   SecurityDashboard: undefined;
   BehaviorAnalytics: undefined;
-  FraudAlert: {
-    recordId?: string;
-    sms?: {
-      sender: string;
-      body: string;
-      timestamp: number;
-    };
-    analysis?: FraudAnalysis;
-  } | undefined;
+  FraudAlert:
+    | {
+        recordId?: string;
+        sms?: {
+          sender: string;
+          body: string;
+          timestamp: number;
+        };
+        analysis?: FraudAnalysis;
+      }
+    | undefined;
   SMSFraudDashboard: undefined;
   UpiLearning: undefined;
   OtpFraudScanner: undefined;
@@ -125,9 +128,21 @@ function DashboardTabs() {
       })}
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
-      <Tab.Screen name="ScanTab" component={QRScannerScreen} options={{ tabBarLabel: 'Scan' }} />
-      <Tab.Screen name="HistoryTab" component={TransactionHistoryScreen} options={{ tabBarLabel: 'History' }} />
-      <Tab.Screen name="ProfileTab" component={SettingsScreen} options={{ tabBarLabel: 'Profile' }} />
+      <Tab.Screen
+        name="ScanTab"
+        component={QRScannerScreen}
+        options={{ tabBarLabel: "Scan" }}
+      />
+      <Tab.Screen
+        name="HistoryTab"
+        component={TransactionHistoryScreen}
+        options={{ tabBarLabel: "History" }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={SettingsScreen}
+        options={{ tabBarLabel: "Profile" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -152,7 +167,6 @@ export default function RootNavigator() {
       }, 100);
     }
   }, [needsReauth, hasCompletedOnboarding, navigation]);
-  
 
   // Decide first screen based on onboarding + authStep
   const getInitialRoute = (): keyof RootStackParamList => {
@@ -204,6 +218,12 @@ export default function RootNavigator() {
         name="SecuritySetup"
         component={SecuritySetupScreen}
         options={{ headerTitle: "", headerBackVisible: true }}
+      />
+
+      <Stack.Screen
+        name="FaceSetup"
+        component={FaceSetupScreen}
+        options={{ headerTitle: "Face Setup", headerBackVisible: true }}
       />
 
       {/* PIN / Login */}
@@ -368,50 +388,50 @@ export default function RootNavigator() {
 
       {/* Merged NexaVault Features */}
       <Stack.Screen
-  name="OtpFraudScanner"
-  component={OtpFraudScannerScreen}
-  options={{ headerTitle: "OTP Fraud Scanner" }}
-/>
+        name="OtpFraudScanner"
+        component={OtpFraudScannerScreen}
+        options={{ headerTitle: "OTP Fraud Scanner" }}
+      />
 
-<Stack.Screen
-  name="LoanDashboard"
-  component={LoanDashboardScreen}
-  options={{ headerTitle: "Loans" }}
-/>
+      <Stack.Screen
+        name="LoanDashboard"
+        component={LoanDashboardScreen}
+        options={{ headerTitle: "Loans" }}
+      />
 
-<Stack.Screen
-  name="LoanApplication"
-  component={LoanApplicationScreen}
-  options={{ headerTitle: "Apply for Loan" }}
-/>
+      <Stack.Screen
+        name="LoanApplication"
+        component={LoanApplicationScreen}
+        options={{ headerTitle: "Apply for Loan" }}
+      />
 
-<Stack.Screen
-  name="QrScan"
-  component={QrScreen}
-  options={{
-    headerTitle: "Scan QR Code",
-    presentation: "fullScreenModal",
-    headerTransparent: true,
-  }}
-/>
+      <Stack.Screen
+        name="QrScan"
+        component={QrScreen}
+        options={{
+          headerTitle: "Scan QR Code",
+          presentation: "fullScreenModal",
+          headerTransparent: true,
+        }}
+      />
 
-<Stack.Screen
-  name="GenerateQR"
-  component={GenerateQRScreen}
-  options={{ headerTitle: "Generate QR Code" }}
-/>
+      <Stack.Screen
+        name="GenerateQR"
+        component={GenerateQRScreen}
+        options={{ headerTitle: "Generate QR Code" }}
+      />
 
-<Stack.Screen
-  name="BiometricAuth"
-  component={BiometricAuthScreen}
-  options={{ headerTitle: "Biometric Setup" }}
-/>
+      <Stack.Screen
+        name="BiometricAuth"
+        component={BiometricAuthScreen}
+        options={{ headerTitle: "Biometric Setup" }}
+      />
 
-<Stack.Screen
-  name="SpamDetection"
-  component={SpamDetectionScreen}
-  options={{ headerTitle: "Spam Detection" }}
-/>
+      <Stack.Screen
+        name="SpamDetection"
+        component={SpamDetectionScreen}
+        options={{ headerTitle: "Spam Detection" }}
+      />
 
       <Stack.Screen
         name="UpiLearning"

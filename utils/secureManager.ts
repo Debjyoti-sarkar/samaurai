@@ -33,6 +33,33 @@ export async function isBiometricEnabledSecure() {
 }
 
 /*------------------------------------------------------------------
+  SECURE CUSTOM FACE FLAG
+------------------------------------------------------------------*/
+const CUSTOM_FACE_KEY = "secure_custom_face_flag";
+const CUSTOM_FACE_ENROLLED_KEY = "secure_custom_face_enrolled_flag";
+
+export async function saveCustomFaceFlag(enabled: boolean) {
+  await SecureStore.setItemAsync(CUSTOM_FACE_KEY, enabled ? "1" : "0");
+}
+
+export async function isCustomFaceEnabledSecure() {
+  const v = await SecureStore.getItemAsync(CUSTOM_FACE_KEY);
+  return v === "1";
+}
+
+export async function saveCustomFaceEnrolledFlag(enrolled: boolean) {
+  await SecureStore.setItemAsync(
+    CUSTOM_FACE_ENROLLED_KEY,
+    enrolled ? "1" : "0",
+  );
+}
+
+export async function isCustomFaceEnrolledSecure() {
+  const v = await SecureStore.getItemAsync(CUSTOM_FACE_ENROLLED_KEY);
+  return v === "1";
+}
+
+/*------------------------------------------------------------------
   SECURE AADHAAR TOKEN
 ------------------------------------------------------------------*/
 const AADHAAR_KEY = "aadhaar_token_secure";
@@ -82,6 +109,8 @@ export async function verifySIMSerial(currentSerial: string) {
 const ALL_SECURE_KEYS = [
   PIN_KEY,
   BIO_KEY,
+  CUSTOM_FACE_KEY,
+  CUSTOM_FACE_ENROLLED_KEY,
   AADHAAR_KEY,
   SIM_SERIAL_KEY,
 ];
@@ -97,7 +126,10 @@ const ALL_ASYNC_STORAGE_KEYS = [
   "@kavach_behavior_logs",
 ];
 
-export async function wipeAllAppData(): Promise<{ success: boolean; error?: string }> {
+export async function wipeAllAppData(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   try {
     console.log("🚨 WIPING ALL APP DATA DUE TO SIM CHANGE...");
 

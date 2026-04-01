@@ -1,11 +1,11 @@
 /**
  * OTP Routes
- * Routes for sending and verifying OTP using Fast2SMS
+ * Routes for sending and verifying OTP using configurable provider
  */
 
 const express = require('express');
 const router = express.Router();
-const { sendOTP, verifyOTP } = require('../services/fast2smsOtpService');
+const { sendOTP, verifyOTP } = require('../services/otpService');
 
 /**
  * @route   POST /api/otp/send

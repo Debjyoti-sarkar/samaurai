@@ -53,8 +53,10 @@ export default function PhoneVerificationScreen() {
     if (otpMode === "offline") {
       setLoading(true);
       await new Promise((resolve) => setTimeout(resolve, 500));
-      setStep("otp");
-      setResendTimer(RESEND_WAIT_SECONDS);
+      navigation.navigate("OTPVerification", {
+        phoneNumber: phone,
+        purpose: "registration",
+      });
       Alert.alert(
         "Offline OTP Mode",
         `Use dummy OTP: ${OFFLINE_DUMMY_OTP}`,
@@ -70,8 +72,10 @@ export default function PhoneVerificationScreen() {
       const result = await realOTPService.sendOTP(phone);
 
       if (result.success) {
-        setStep("otp");
-        setResendTimer(RESEND_WAIT_SECONDS);
+        navigation.navigate("OTPVerification", {
+          phoneNumber: phone,
+          purpose: "registration",
+        });
 
         Alert.alert(
           "OTP Sent!",

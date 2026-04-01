@@ -10,7 +10,7 @@ const getBackendUrl = () => {
 };
 
 const BASE_URL = getBackendUrl();
-const ENABLE_OTP_BYPASS = true; // Forced to true as requested 'for now'
+const ENABLE_OTP_BYPASS = false; // Re-enabled OTP verification for production use
 
 export const apiService = {
   async sendOTP(phone: string) {
@@ -36,7 +36,7 @@ export const apiService = {
 
   async verifyOTP(phone: string, otp: string) {
     const isBypassCode = otp === '000000' || otp === '123456' || otp === '0000' || otp === '1111';
-    if (ENABLE_OTP_BYPASS && isBypassCode) {
+    if (ENABLE_OTP_BYPASS && isBypassCode && __DEV__) {
       console.log("🟢 [KAVACH BYPASS] OTP verification intercepted for:", phone, "with code:", otp);
       return { success: true, message: "Bypassed OTP verification" };
     }

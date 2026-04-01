@@ -18,6 +18,9 @@ interface UserData {
   biometricEnabled: boolean;
   customFaceEnabled: boolean;
   aadhaarLinked: boolean;
+  name: string;
+  upiId: string;
+  email: string;
 }
 
 interface AuthContextType {
@@ -33,6 +36,7 @@ interface AuthContextType {
   enableBiometric: (enabled: boolean) => Promise<void>;
   enableCustomFace: (enabled: boolean) => Promise<void>;
   linkAadhaar: () => Promise<void>;
+  updateUserProfile: (name: string, upiId: string, email: string) => Promise<void>;
   login: () => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
@@ -124,6 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       biometricEnabled: false,
       customFaceEnabled: false,
       aadhaarLinked: false,
+      name: "User",
+      upiId: "",
+      email: "",
     };
     setUserData(user);
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -162,6 +169,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const linkAadhaar = async () => {
     if (!userData) return;
     const newUser = { ...userData, aadhaarLinked: true };
+    setUserData(newUser);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
+  };
+
+  const updateUserProfile = async (name: string, upiId: string, email: string) => {
+    if (!userData) return;
+    const newUser = { ...userData, name, upiId, email };
     setUserData(newUser);
     await AsyncStorage.setItem(USER_KEY, JSON.stringify(newUser));
   };
@@ -267,6 +281,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         enableBiometric,
         enableCustomFace,
         linkAadhaar,
+        updateUserProfile,
         login,
         logout,
         completeOnboarding,

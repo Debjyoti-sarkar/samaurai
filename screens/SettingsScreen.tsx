@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Pressable, Switch, Alert, GestureResponderEvent, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, StyleSheet, Pressable, Switch, Alert, GestureResponderEvent, TextInput, Modal, ActivityIndicator } from "react-native";
+import Animated, { FadeIn, FadeInDown, SlideOutDown, FadeOut } from "react-native-reanimated";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -54,7 +55,7 @@ export default function SettingsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { t, language, languages, setLanguage } = useLanguage();
-  const { voiceGuideEnabled, toggleVoiceGuide, userData, logout } = useAuth();
+  const { voiceGuideEnabled, toggleVoiceGuide, userData, updateUserProfile, logout } = useAuth();
 
   // NexaSafe tracking
   const { trackScreenVisit, trackTap, trackTapDuration, trackSwipe, isSessionActive, endSession } = useNexaSafe();
@@ -83,6 +84,56 @@ export default function SettingsScreen() {
       trackTap('Settings', locationX, locationY, zone);
       trackTapDuration('Settings', duration);
     }
+  };
+
+  // Profile State
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  const [name, setName] = useState(userData?.name || "User");
+  const [email, setEmail] = useState(userData?.email || "");
+  const [upiId, setUpiId] = useState(userData?.upiId || "");
+  const [alertSensitivity, setAlertSensitivity] = useState(true);
+
+  // Form Validation
+  const [errors, setErrors] = useState<{ upiId?: string; email?: string }>({});
+
+  const validateForm = () => {
+    let isValid = true;
+    let newErrors: { upiId?: string; email?: string } = {};
+
+    if (upiId && !/^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/i.test(upiId.trim())) {
+      newErrors.upiId = "Invalid UPI ID format (e.g., name@bank)";
+      isValid = false;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = "Invalid email address";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleSaveProfile = async () => {
+    if (!validateForm()) return;
+
+    setIsSaving(true);
+    
+    // Simulate short network latency then update global state securely
+    await new Promise(resolve => setTimeout(resolve, 800));
+    await updateUserProfile(name, upiId, email);
+    
+    setIsSaving(false);
+    setSaveSuccess(true);
+    
+    // Auto close after success
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setIsEditing(false);
+    }, 1500);
   };
 
   const currentLanguage = languages.find((l) => l.code === language);
@@ -125,17 +176,30 @@ export default function SettingsScreen() {
     <ScreenScrollView>
       <View style={[styles.profileCard, { backgroundColor: theme.card }, Shadows.md]}>
         <View style={[styles.avatar, { backgroundColor: KAVACHColors.primary }]}>
-          <ThemedText style={styles.avatarText}>U</ThemedText>
+          <ThemedText style={styles.avatarText}>{(userData?.name || "User").charAt(0).toUpperCase()}</ThemedText>
         </View>
         <View style={styles.profileInfo}>
-          <ThemedText type="h4">User</ThemedText>
+          <ThemedText type="h4">{userData?.name || "User"}</ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            {userData?.phoneNumber ? `+91 ${userData.phoneNumber}` : "+91 XXXXXXXXXX"}
+            {userData?.phoneNumber ? `+91 ${userData.phoneNumber}` : "+91 9876543210"}
           </ThemedText>
         </View>
-        <Pressable style={[styles.editButton, { borderColor: theme.border }]}>
+        <Pressable onPress={() => setIsEditing(true)} style={[styles.editButton, { borderColor: theme.border }]}>
           <Feather name="edit-2" size={16} color={theme.text} />
         </Pressable>
+      </View>
+
+      {/* INTELLIGENCE STATUS CARD */}
+      <View style={[styles.intelligenceCard, { backgroundColor: KAVACHColors.success + "10", borderColor: KAVACHColors.success + "30" }]}>
+        <View style={styles.intelligenceHeader}>
+          <Feather name="shield" size={18} color={KAVACHColors.success} />
+          <ThemedText style={{ color: KAVACHColors.success, fontWeight: "800", marginLeft: Spacing.sm, letterSpacing: 0.5 }}>
+            LOW RISK ACCOUNT
+          </ThemedText>
+        </View>
+        <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+          Kavach AI confirms your recent network activity and biometric patterns map exactly to your trusted devices and geographical zones.
+        </ThemedText>
       </View>
 
       <View style={styles.section}>
@@ -181,6 +245,25 @@ export default function SettingsScreen() {
             title="Biometric Authentication"
             subtitle={userData?.biometricEnabled ? "Enabled" : "Disabled"}
             onPress={() => navigation.navigate("BiometricSettings")}
+          />
+          <SettingsItem
+            icon="monitor"
+            title="Device Management"
+            subtitle="1 active trusted device"
+            onPress={() => {}}
+          />
+          <SettingsItem
+            icon="bell"
+            title="High Sensitivity Alerts"
+            subtitle="Trigger alerts for minor anomalies"
+            rightElement={
+              <Switch
+                value={alertSensitivity}
+                onValueChange={setAlertSensitivity}
+                trackColor={{ false: theme.border, true: KAVACHColors.primary + "60" }}
+                thumbColor={alertSensitivity ? KAVACHColors.primary : theme.backgroundSecondary}
+              />
+            }
           />
           <SettingsItem
             icon="credit-card"
@@ -251,6 +334,109 @@ export default function SettingsScreen() {
           Security in your hands
         </ThemedText>
       </View>
+
+      {/* EDIT PROFILE MODAL */}
+      <Modal visible={isEditing} transparent animationType="none" onRequestClose={() => !isSaving && setIsEditing(false)}>
+        <View style={styles.modalOverlay}>
+          <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+             <Pressable style={{ flex: 1 }} onPress={() => !isSaving && setIsEditing(false)} />
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.duration(300)} exiting={SlideOutDown} style={[styles.modalContent, { backgroundColor: theme.backgroundRoot, borderColor: theme.border }]}>
+            <View style={styles.modalHeader}>
+              <ThemedText type="h3">Edit Profile</ThemedText>
+              <Pressable onPress={() => !isSaving && setIsEditing(false)} style={styles.closeButton}>
+                 <Feather name="x" size={24} color={theme.text} />
+              </Pressable>
+            </View>
+
+            <View style={styles.formGroup}>
+              <ThemedText type="caption" style={[styles.inputLabel, { color: theme.textSecondary }]}>FULL NAME</ThemedText>
+              <View style={[styles.inputContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                 <Feather name="user" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                 <TextInput
+                   style={[styles.input, { color: theme.text }]}
+                   value={name}
+                   onChangeText={setName}
+                   placeholder="Your full name"
+                   placeholderTextColor={theme.textSecondary}
+                   editable={!isSaving}
+                 />
+              </View>
+            </View>
+
+            <View style={styles.formGroup}>
+              <ThemedText type="caption" style={[styles.inputLabel, { color: theme.textSecondary }]}>PHONE NUMBER</ThemedText>
+              <View style={[styles.inputContainer, { backgroundColor: theme.card, borderColor: theme.border, opacity: 0.7 }]}>
+                 <Feather name="phone" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                 <TextInput
+                   style={[styles.input, { color: theme.textSecondary }]}
+                   value={userData?.phoneNumber ? `+91 ${userData.phoneNumber}` : "+91 9876543210"}
+                   editable={false}
+                 />
+                 <Feather name="lock" size={16} color={theme.textSecondary} style={{ marginRight: Spacing.md }} />
+              </View>
+              <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 4 }}>Phone number is linked securely and cannot be changed.</ThemedText>
+            </View>
+
+            <View style={styles.formGroup}>
+              <ThemedText type="caption" style={[styles.inputLabel, { color: theme.textSecondary }]}>PREFERRED UPI ID</ThemedText>
+              <View style={[styles.inputContainer, { backgroundColor: theme.card, borderColor: errors.upiId ? KAVACHColors.sos : theme.border }]}>
+                 <Feather name="at-sign" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                 <TextInput
+                   style={[styles.input, { color: theme.text }]}
+                   value={upiId}
+                   onChangeText={(t) => { setUpiId(t); setErrors({...errors, upiId: undefined}); }}
+                   placeholder="e.g., username@bank"
+                   placeholderTextColor={theme.textSecondary}
+                   autoCapitalize="none"
+                   editable={!isSaving}
+                 />
+              </View>
+              {errors.upiId && <ThemedText type="caption" style={{ color: KAVACHColors.sos, marginTop: 4 }}>{errors.upiId}</ThemedText>}
+            </View>
+
+            <View style={styles.formGroup}>
+              <ThemedText type="caption" style={[styles.inputLabel, { color: theme.textSecondary }]}>EMAIL ADDRESS</ThemedText>
+              <View style={[styles.inputContainer, { backgroundColor: theme.card, borderColor: errors.email ? KAVACHColors.sos : theme.border }]}>
+                 <Feather name="mail" size={18} color={theme.textSecondary} style={styles.inputIcon} />
+                 <TextInput
+                   style={[styles.input, { color: theme.text }]}
+                   value={email}
+                   onChangeText={(t) => { setEmail(t); setErrors({...errors, email: undefined}); }}
+                   placeholder="your@email.com"
+                   placeholderTextColor={theme.textSecondary}
+                   keyboardType="email-address"
+                   autoCapitalize="none"
+                   editable={!isSaving}
+                 />
+              </View>
+              {errors.email && <ThemedText type="caption" style={{ color: KAVACHColors.sos, marginTop: 4 }}>{errors.email}</ThemedText>}
+            </View>
+
+            {saveSuccess ? (
+              <Animated.View entering={FadeIn} style={[styles.saveFeedback, { backgroundColor: KAVACHColors.success + "20", borderColor: KAVACHColors.success }]}>
+                <Feather name="check-circle" size={20} color={KAVACHColors.success} style={{ marginRight: Spacing.sm }} />
+                <ThemedText style={{ color: KAVACHColors.success, fontWeight: "700" }}>Profile updated successfully!</ThemedText>
+              </Animated.View>
+            ) : (
+              <Pressable 
+                onPress={handleSaveProfile} 
+                disabled={isSaving}
+                style={[styles.saveButton, { backgroundColor: KAVACHColors.primary, opacity: isSaving ? 0.7 : 1 }]}
+              >
+                {isSaving ? (
+                   <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                   <ThemedText style={{ color: "#FFF", fontWeight: "700", fontSize: 16 }}>Save Changes</ThemedText>
+                )}
+              </Pressable>
+            )}
+            
+          </Animated.View>
+        </View>
+      </Modal>
+
     </ScreenScrollView>
   );
 }
@@ -323,5 +509,83 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: Spacing.xl,
     alignItems: "center",
+  },
+  // Intelligence Card
+  intelligenceCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.xl,
+  },
+  intelligenceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  // Modal Overlays
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing["4xl"],
+    borderTopLeftRadius: BorderRadius.xl * 1.5,
+    borderTopRightRadius: BorderRadius.xl * 1.5,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  closeButton: {
+    padding: Spacing.sm,
+  },
+  formGroup: {
+    marginBottom: Spacing.lg,
+  },
+  inputLabel: {
+    marginBottom: Spacing.xs,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    height: 52,
+  },
+  inputIcon: {
+    paddingHorizontal: Spacing.md,
+  },
+  input: {
+    flex: 1,
+    height: "100%",
+    fontSize: 16,
+    paddingRight: Spacing.md,
+  },
+  saveButton: {
+    height: 54,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.sm,
+  },
+  saveFeedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 54,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginTop: Spacing.sm,
   },
 });

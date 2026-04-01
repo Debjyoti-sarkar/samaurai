@@ -201,6 +201,15 @@ class AadhaarService {
    * This sends an OTP to the mobile number linked with the Aadhaar
    */
   public async requestOTP(aadhaarNumber: string): Promise<OTPRequestResult> {
+    if (__DEV__) {
+      console.log("🛠️ [DEV] Aadhaar OTP request bypassed for:", aadhaarNumber);
+      return { 
+        success: true, 
+        sessionId: "mock_session_" + Date.now(), 
+        message: "CAPTCHA/OTP bypassed in DEV mode" 
+      };
+    }
+
     try {
       // Validate Aadhaar number first
       const validation = this.validateAadhaarNumber(aadhaarNumber);
@@ -254,6 +263,37 @@ class AadhaarService {
    * Returns complete KYC data including name, DOB, address, and photo
    */
   public async verifyOTP(otp: string, sessionId?: string): Promise<AadhaarVerificationResult> {
+    if (__DEV__ && (otp === '000000' || otp === '123456')) {
+      console.log("🛠️ [DEV] Aadhaar OTP verification bypassed with code:", otp);
+      const mockData: AadhaarData = {
+        uid: "XXXX XXXX 1234",
+        name: "DEBJYOTI SARKAR",
+        gender: "MALE",
+        dob: "01-01-1995",
+        address: {
+          house: "123",
+          street: "Tech Lane",
+          locality: "Silicon Valley",
+          district: "Kolkata",
+          state: "West Bengal",
+          pincode: "700001"
+        },
+        verifiedAt: new Date().toISOString(),
+        photo: "https://api.dicebear.com/7.x/avataaars/png?seed=Debjyoti"
+      };
+
+      // Store Aadhaar data
+      await this.storeAadhaarData(mockData);
+      // Update verification status
+      await this.setVerificationStatus(true, mockData);
+
+      return {
+        success: true,
+        data: mockData,
+        message: "Aadhaar verified successfully (BYPASS MODE)"
+      };
+    }
+
     try {
       // Validate OTP format
       if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {

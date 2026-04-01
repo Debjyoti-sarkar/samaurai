@@ -10,8 +10,15 @@ const getBackendUrl = () => {
 };
 
 const BASE_URL = getBackendUrl();
+const ENABLE_OTP_BYPASS = true; // Forced to true as requested 'for now'
+
 export const apiService = {
   async sendOTP(phone: string) {
+    if (ENABLE_OTP_BYPASS) {
+      console.log("🛠️ [DEV] OTP sending bypassed for:", phone);
+      return { success: true, message: "Bypassed OTP sending" };
+    }
+
     const response = await fetch(`${BASE_URL}/otp/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -28,6 +35,12 @@ export const apiService = {
   },
 
   async verifyOTP(phone: string, otp: string) {
+    const isBypassCode = otp === '000000' || otp === '123456' || otp === '0000' || otp === '1111';
+    if (ENABLE_OTP_BYPASS && isBypassCode) {
+      console.log("🟢 [KAVACH BYPASS] OTP verification intercepted for:", phone, "with code:", otp);
+      return { success: true, message: "Bypassed OTP verification" };
+    }
+
     const response = await fetch(`${BASE_URL}/otp/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

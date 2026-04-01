@@ -9,7 +9,7 @@ import { useTTS } from "@/hooks/useTTS";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
   FadeInDown,
 } from "react-native-reanimated";
 
@@ -81,8 +81,8 @@ export default function DashboardScreen() {
           speak("SOS Emergency");
           navigation.navigate("SOS");
         }}
-        onPressIn={() => (scale.value = withSpring(0.9))}
-        onPressOut={() => (scale.value = withSpring(1))}
+        onPressIn={() => (scale.value = withTiming(0.95, { duration: 150 }))}
+        onPressOut={() => (scale.value = withTiming(1, { duration: 150 }))}
         style={[styles.sosButton, { backgroundColor: KAVACHColors.sos }, Shadows.md, animatedStyle]}
       >
         <Feather name="shield" size={16} color="#FFFFFF" />
@@ -98,8 +98,8 @@ export default function DashboardScreen() {
       <View style={{ alignItems: 'center', width: '25%' }}>
         <AnimatedPressable
           onPress={onPress}
-          onPressIn={(e) => { handleTapStart(e); scale.value = withSpring(0.9); }}
-          onPressOut={(e) => { handleTapEnd(e); scale.value = withSpring(1); }}
+          onPressIn={(e) => { handleTapStart(e); scale.value = withTiming(0.95, { duration: 150 }); }}
+          onPressOut={(e) => { handleTapEnd(e); scale.value = withTiming(1, { duration: 150 }); }}
           style={[
             styles.actionButton,
             { backgroundColor: isHero ? color : theme.backgroundSecondary },
@@ -130,8 +130,8 @@ export default function DashboardScreen() {
           <View style={styles.headerLeft}>
             <View style={[styles.avatar, { backgroundColor: KAVACHColors.primary }]} />
             <View>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>Willkommen zurück,</ThemedText>
-              <ThemedText type="h3" style={{ color: theme.text, fontWeight: '700' }}>User</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>Welcome back,</ThemedText>
+              <ThemedText type="h3" style={{ color: theme.text, fontWeight: '700' }}>{userData?.name || "User"}</ThemedText>
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 12 }}>

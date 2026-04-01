@@ -165,7 +165,8 @@ export default function SendMoneyScreen() {
   const [note, setNote] = useState("");
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentState, setPaymentState] = useState<'idle' | 'checking' | 'processing' | 'success' | 'failed'>('idle');
+  const isProcessing = paymentState === 'checking' || paymentState === 'processing';
   const [contactName, setContactName] = useState(
     route.params?.contactName || "",
   );
@@ -255,7 +256,7 @@ export default function SendMoneyScreen() {
 
     // Call Kavach Shield Risk API
     try {
-      setIsProcessing(true);
+      setPaymentState('checking');
       
       const payload = {
         value: recipient,
@@ -275,7 +276,7 @@ export default function SendMoneyScreen() {
       
       const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${bundlerIp}:5000`;
       
-      console.log("[Risk Check] Payload:", payload);
+      console.log("[Risk Check] Started for recipient:", recipient);
       console.log("[Risk Check] Sending to API:", API_URL);
       
       // Let's use a try block for the fetch to avoid crashing if backend is offline
@@ -284,22 +285,35 @@ export default function SendMoneyScreen() {
       let finalReasons: string[] = [];
 
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sec reliable timeout
+
         const response = await fetch(`${API_URL}/api/check-risk`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
         if (response.ok) {
           const data = await response.json();
           finalRisk = data.risk;
           finalScore = data.score;
           finalReasons = data.reasons || [];
+          console.log("[Risk Check] API Response:", data);
+        } else {
+          console.warn("[Risk Check] API returned non-OK status:", response.status);
         }
-      } catch (fetchErr) {
-        console.warn("Backend not reachable, relying solely on local blacklist");
+      } catch (fetchErr: any) {
+        if (fetchErr.name === 'AbortError') {
+          console.warn("[Risk Check] Warning: Network request timed out after 5s.");
+        } else {
+          console.warn("[Risk Check] API not reachable:", fetchErr.message);
+        }
+        console.warn("[Risk Check] Relying solely on local flagged list instead.");
       }
       
       if (isLocalFlagged && finalRisk !== "HIGH") {
@@ -315,10 +329,11 @@ export default function SendMoneyScreen() {
         setShowConfirmation(true);
       }
     } catch (error) {
-      console.warn("Risk check failed, falling back to confirmation", error);
+      console.error("[Risk Check] Critical Error, falling back to confirmation", error);
       setShowConfirmation(true); 
     } finally {
-      setIsProcessing(false);
+      // Re-enable button interaction depending on following modal behaviors
+      setPaymentState('idle');
     }
   };
 
@@ -352,7 +367,8 @@ export default function SendMoneyScreen() {
     };
 
     try {
-      setIsProcessing(true);
+      setPaymentState('processing');
+      console.log("🚀 [Payment Flow] Initiating Payment Processing...");
 
       // NexaSafe: Mark transaction start
       trackTransactionStart();
@@ -367,6 +383,12 @@ export default function SendMoneyScreen() {
 
         // NexaSafe: Mark transaction end
         trackTransactionEnd();
+        
+        setPaymentState('success');
+        setShowConfirmation(false);
+        setRecipient("");
+        setAmount("");
+        setNote("");
 
         Alert.alert(
           "Transaction Saved",
@@ -383,15 +405,27 @@ export default function SendMoneyScreen() {
         note || undefined,
       );
 
+      console.log("✅ [Payment Flow] Order Created successfully:", paymentOrder.orderId);
+
+      // Clean UX transitions
+      setPaymentState('success');
+      setShowConfirmation(false);
+      setRecipient("");
+      setAmount("");
+      setNote("");
+
       navigation.navigate("PaymentProcessing", {
         paymentOrder: {
           ...paymentOrder,
           contactName: contactName || undefined,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("❌ [Payment Flow] Execution failed:", error.message);
+      
       // NexaSafe: Mark transaction end on error too
       trackTransactionEnd();
+      setPaymentState('failed');
 
       // On error, optionally enqueue for retry
       if (isConnected && !isWeak) {
@@ -400,6 +434,8 @@ export default function SendMoneyScreen() {
           payload,
           idempotencyKey: "send-" + Date.now(),
         });
+        
+        setShowConfirmation(false);
         Alert.alert(
           "Transaction Saved",
           "Could not process now. Transaction saved and will be retried automatically.",
@@ -411,7 +447,9 @@ export default function SendMoneyScreen() {
         ]);
       }
     } finally {
-      setIsProcessing(false);
+      if (paymentState !== 'success') {
+         setPaymentState('idle');
+      }
     }
   };
 
@@ -481,7 +519,7 @@ export default function SendMoneyScreen() {
               disabled={isProcessing}
               style={{ backgroundColor: KAVACHColors.primary, flex: 1 }}
             >
-              {isProcessing ? "Processing..." : t("confirm")}
+              {paymentState === 'processing' ? "Processing..." : t("confirm")}
             </Button>
 
             <Pressable
@@ -650,7 +688,7 @@ export default function SendMoneyScreen() {
             marginTop: Spacing.xl,
           }}
         >
-          {isProcessing ? "Checking Securely..." : t("reviewPayment")}
+          {paymentState === 'checking' ? "Checking Securely..." : t("reviewPayment")}
         </Button>
       </Animated.View>
 

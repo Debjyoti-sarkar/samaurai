@@ -37,6 +37,7 @@ import { createPaymentOrder, isValidUpiId } from "@/services/paymentGateway";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { RiskModal, RiskLevel } from "@/components/RiskModal";
+import Constants from 'expo-constants';
 
 // NEW IMPORT (added)
 import { speak } from "../utils/speak";
@@ -268,10 +269,14 @@ export default function SendMoneyScreen() {
       let isLocalFlagged = flaggedUpis.includes(recipient.toLowerCase());
 
       // Fetch from backend
-      // Using a relative/configurable URL depending on env. Localhost for now, assuming standard API base
-      // NOTE: use standard localhost mapping for android emulator (10.0.2.2) or IP for physical device
-      // We will fallback to a generic network call if possible
-      const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+      // Automatically determine the computer's local IP running Expo Metro server
+      const hostUri = Constants.expoConfig?.hostUri || (Constants as any).manifest?.debuggerHost;
+      const bundlerIp = hostUri ? hostUri.split(':')[0] : '10.0.2.2';
+      
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${bundlerIp}:5000`;
+      
+      console.log("[Risk Check] Payload:", payload);
+      console.log("[Risk Check] Sending to API:", API_URL);
       
       // Let's use a try block for the fetch to avoid crashing if backend is offline
       let finalRisk = "LOW";

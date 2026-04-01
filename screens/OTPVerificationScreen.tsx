@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import OTPAutoFill from '../components/OTPAutoFill';
+import { OTPWidget } from '@msg91comm/sendotp-react-native';
 import { useOTPDetection } from '../hooks/useOTPDetection';
 import { smsMonitor } from '../services/smsMonitor';
 import SMSFraudAlert from '../components/SMSFraudAlert';
@@ -44,8 +45,6 @@ const OTPVerificationScreen: React.FC = () => {
     recipient,
   } = route.params || {};
 
-  // ===== NEW STATES =====
-  const [useRealOTP, setUseRealOTP] = useState(true);
   const [otpSentPhone, setOtpSentPhone] = useState<string | null>(null);
 
   const [isVerifying, setIsVerifying] = useState(false);
@@ -58,22 +57,48 @@ const OTPVerificationScreen: React.FC = () => {
 
   const otpInputRef = useRef<string>('');
 
-  // ===== SEND REAL OTP WHEN ENABLED =====
+  // MSG91 Widget configuration setup
+  const widgetId = '366275687750353332343437';
+  const authToken = process.env.EXPO_PUBLIC_MSG91_AUTH_TOKEN || '495595A0sG4XmEvW69c98f3aP1';
+  // Note: Place the real authToken inside your root .env file as EXPO_PUBLIC_MSG91_AUTH_TOKEN.
+
   useEffect(() => {
-    if (useRealOTP) {
-      sendRealOTP();
+    try {
+      OTPWidget.initializeWidget(widgetId, authToken); 
+    } catch (err) {
+      console.log('MSG91 OTPWidget init failed:', err);
     }
-  }, [useRealOTP]);
+  }, []);
+
+  // ===== SEND REAL OTP =====
+  useEffect(() => {
+    sendRealOTP();
+  }, []);
 
   const sendRealOTP = async () => {
     try {
-      const response = await apiService.sendOTP(phoneNumber);
-      if (response.success) {
-        setOtpSentPhone(response.to || phoneNumber);
-        Alert.alert('OTP Sent', `OTP sent to ${response.to || phoneNumber}`);
+      // Extract 10 digits without country code or + padding if needed or send directly 
+      const rawNumber = phoneNumber.replace(/[^0-9]/g, '');
+      const validIdentifier = rawNumber.length === 10 ? `91${rawNumber}` : rawNumber;
+
+      const data = {
+        identifier: validIdentifier
+      };
+
+      // Trigger the official MSG91 OTP Widget!
+      const response = await OTPWidget.sendOTP(data);
+      console.log('MSG91 OTPWidget response:', response);
+
+      if (response && response.type === 'success') {
+        setOtpSentPhone(validIdentifier);
+        Alert.alert('OTP Sent', `OTP safely generated & sent to ${validIdentifier}`);
+      } else {
+        // Fallback or error catch
+        console.warn('Widget response non-success:', response);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send OTP');
+      console.error('Widget send error:', error);
+      Alert.alert('Error', error.message || 'Failed to send OTP using widget');
     }
   };
 
@@ -132,15 +157,8 @@ const OTPVerificationScreen: React.FC = () => {
     }
 
     try {
-      let isValid = false;
-
-      if (useRealOTP) {
-        const response = await apiService.verifyOTP(phoneNumber, otp);
-        isValid = response.success === true;
-      } else {
-        await new Promise(res => setTimeout(res, 500));
-        isValid = otp === '123456';
-      }
+      const response = await apiService.verifyOTP(phoneNumber, otp);
+      const isValid = response.success === true;
 
       if (isValid) {
         biometricAnalysis.addSampleToProfile();
@@ -167,11 +185,8 @@ const OTPVerificationScreen: React.FC = () => {
     setResendTimer(30);
     setVerificationError(null);
 
-    if (useRealOTP) {
+    if (canResend) {
       await sendRealOTP();
-      Alert.alert('OTP Sent', `OTP sent to ${phoneNumber}`);
-    } else {
-      Alert.alert('Dummy Mode', 'Use OTP: 123456');
     }
   };
 
@@ -181,19 +196,6 @@ const OTPVerificationScreen: React.FC = () => {
         <ScrollView contentContainerStyle={styles.scrollContent}>
 
           <Text style={styles.title}>Verification Code</Text>
-
-          {/* TOGGLE - DEV ONLY */}
-          {__DEV__ && (
-            <View style={styles.toggleContainer}>
-              <Text style={styles.toggleText}>
-                {useRealOTP ? 'Real OTP Mode' : 'Dummy OTP Mode'}
-              </Text>
-              <Switch
-                value={useRealOTP}
-                onValueChange={setUseRealOTP}
-              />
-            </View>
-          )}
 
           <OTPAutoFill
             length={6}

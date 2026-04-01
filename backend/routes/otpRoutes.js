@@ -1,11 +1,11 @@
 /**
  * OTP Routes
- * Routes for sending and verifying OTP using Twilio
+ * Routes for sending and verifying OTP using MSG91
  */
 
 const express = require('express');
 const router = express.Router();
-const { sendOTP, verifyOTP } = require('../services/twilioOtpService');
+const { sendOTP, verifyOTP } = require('../services/msg91OtpService');
 
 /**
  * @route   POST /api/otp/send

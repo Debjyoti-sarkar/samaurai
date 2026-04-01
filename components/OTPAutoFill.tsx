@@ -1,4 +1,4 @@
-/**
+./**
  * OTP Auto-Fill Component
  * Displays real-time OTP with auto-fill capability
  */

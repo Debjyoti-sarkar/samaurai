@@ -9,13 +9,11 @@ import { AppState, AppStateStatus, Platform } from 'react-native';
 import { nexaSafeTracker, SessionData, BehaviorLog } from '@/services/NexaSafeTrackerManager';
 import ReauthModal from '@/components/ReauthModal';
 
-// Dashboard server URL - using your local network IP for physical device testing
-// For Android emulator use 10.0.2.2, for physical devices use your computer's IP
-const DASHBOARD_URL = Platform.select({
-  android: 'https://curvy-sides-carry.loca.lt', // Public backend URL
-  ios: 'https://curvy-sides-carry.loca.lt',
-  default: 'http://localhost:3001'
-});
+const DASHBOARD_URL = process.env.EXPO_PUBLIC_DASHBOARD_URL?.trim();
+const DASHBOARD_SYNC_ENABLED = Boolean(DASHBOARD_URL);
+
+let dashboardSyncCooldownUntil = 0;
+let lastDashboardSyncLogAt = 0;
 
 // ============================================================
 // Types
@@ -94,21 +92,41 @@ interface NexaSafeProviderProps {
 
 // Helper function to sync data to dashboard
 const syncToDashboard = async (endpoint: string, data: any): Promise<void> => {
+  if (!DASHBOARD_SYNC_ENABLED || !DASHBOARD_URL) {
+    return;
+  }
+
+  if (Date.now() < dashboardSyncCooldownUntil) {
+    return;
+  }
+
   const url = `${DASHBOARD_URL}/api/nexasafe/${endpoint}`;
-  console.log(`📊 Syncing to dashboard: ${url}`);
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data)
     });
-    if (response.ok) {
-      console.log(`✅ Dashboard sync success: ${endpoint}`);
-    } else {
-      console.log(`❌ Dashboard sync failed: ${endpoint} - Status: ${response.status}`);
+
+    if (!response.ok) {
+      if (response.status >= 500) {
+        dashboardSyncCooldownUntil = Date.now() + 30000;
+      }
+
+      const now = Date.now();
+      if (now - lastDashboardSyncLogAt > 15000) {
+        console.log(`❌ Dashboard sync failed: ${endpoint} - Status: ${response.status}`);
+        lastDashboardSyncLogAt = now;
+      }
     }
   } catch (error: any) {
-    console.log(`❌ Dashboard sync error: ${endpoint} - ${error.message}`);
+    dashboardSyncCooldownUntil = Date.now() + 30000;
+
+    const now = Date.now();
+    if (now - lastDashboardSyncLogAt > 15000) {
+      console.log(`❌ Dashboard sync error: ${endpoint} - ${error.message}`);
+      lastDashboardSyncLogAt = now;
+    }
   }
 };
 

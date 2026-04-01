@@ -5,6 +5,8 @@
 
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const normalizeApiBaseUrl = (url: string): string => {
   const trimmed = url.trim().replace(/\/+$/, '');
@@ -29,16 +31,30 @@ const resolveApiBaseUrl = (): string => {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+const replacePort = (url: string, newPort: string): string => {
+  const normalized = url.trim().replace(/\/+$/, '');
+  return normalized.replace(/:(\d+)$/, `:${newPort}`);
+};
+
 const getCandidateApiBaseUrls = (): string[] => {
   const envOtpBase = process.env.EXPO_PUBLIC_OTP_API_BASE_URL;
   const envApiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+  const hostIp = hostUri ? hostUri.split(':')[0] : undefined;
 
   const candidates = [
     envOtpBase,
     envApiBase,
+    envApiBase ? replacePort(envApiBase, '5000') : undefined,
+    hostIp ? `http://${hostIp}:5000` : undefined,
     __DEV__ ? 'http://10.0.2.2:5000' : undefined,
+    __DEV__ && Platform.OS !== 'android' ? 'http://localhost:5000' : undefined,
     __DEV__ ? 'http://localhost:5000' : undefined,
     __DEV__ ? 'http://127.0.0.1:5000' : undefined,
+    __DEV__ ? 'https://curvy-sides-carry.loca.lt' : undefined,
     __DEV__ ? undefined : 'https://your-production-api.com',
   ]
     .filter((value): value is string => Boolean(value))

@@ -151,6 +151,7 @@ router.get('/test', async (req, res) => {
   try {
     const apiKey = process.env.AADHAAR_API_KEY;
     const apiSecret = process.env.AADHAAR_API_SECRET;
+    const bearerToken = process.env.AADHAAR_BEARER_TOKEN;
 
     res.json({
       success: true,
@@ -158,6 +159,7 @@ router.get('/test', async (req, res) => {
       configured: !!(apiKey && apiSecret),
       api_key_set: !!apiKey,
       api_secret_set: !!apiSecret,
+      bearer_token_set: !!bearerToken,
       base_url: process.env.AADHAAR_API_BASE_URL || 'https://kyc-api.surepass.io/api/v1',
     });
   } catch (error) {

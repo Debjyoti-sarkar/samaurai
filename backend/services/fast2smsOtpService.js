@@ -12,6 +12,7 @@ const FAST2SMS_ROUTE = process.env.FAST2SMS_ROUTE || 'q';
 const FAST2SMS_SENDER_ID = process.env.FAST2SMS_SENDER_ID || '';
 const OTP_LENGTH = Number(process.env.OTP_LENGTH || 6);
 const OTP_EXPIRY_SECONDS = Number(process.env.OTP_EXPIRY_SECONDS || 300);
+const OTP_SMS_TEMPLATE = 'Your KAVACH OTP is {OTP}. Valid for {EXPIRY_MIN} minutes. Do not share it with anyone.';
 
 const otpStore = new Map();
 
@@ -36,10 +37,7 @@ function generateOtp() {
 }
 
 function buildMessage(otp) {
-  const template = process.env.OTP_SMS_TEMPLATE ||
-    'Your KAVACH OTP is {OTP}. Valid for {EXPIRY_MIN} minutes. Do not share it with anyone.';
-
-  return template
+  return OTP_SMS_TEMPLATE
     .replace('{OTP}', otp)
     .replace('{EXPIRY_MIN}', String(Math.max(1, Math.floor(OTP_EXPIRY_SECONDS / 60))));
 }
@@ -111,11 +109,9 @@ async function sendOTP(phoneNumber) {
       providerData,
     });
 
-    const providerMessage =
-      providerData?.message?.[0] ||
-      providerData?.message ||
-      providerData?.reason ||
-      error.message;
+    const providerMessage = Array.isArray(providerData?.message)
+      ? providerData.message[0]
+      : providerData?.message || providerData?.reason || error.message;
 
     return {
       success: false,

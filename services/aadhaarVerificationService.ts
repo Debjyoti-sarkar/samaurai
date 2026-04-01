@@ -5,11 +5,33 @@
 
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
-// Base URL for your backend API
-const API_BASE_URL = __DEV__
-  ? 'http://localhost:5000/api'
-  : 'https://your-production-api.com/api';
+const getBackendUrl = () => {
+  const envBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (envBaseUrl) {
+    const trimmed = envBaseUrl.trim().replace(/\/+$/, '');
+    return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+  }
+
+  if (!__DEV__) return 'https://your-production-api.com/api';
+
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+
+  const ip = hostUri
+    ? hostUri.split(':')[0]
+    : Platform.OS === 'android'
+      ? '10.0.2.2'
+      : 'localhost';
+
+  return `http://${ip}:5000/api`;
+};
+
+const API_BASE_URL = getBackendUrl();
 
 export interface AadhaarOTPResponse {
   success: boolean;

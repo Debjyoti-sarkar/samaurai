@@ -12,10 +12,73 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BASE_URL } from './api';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 // ==================== CONFIGURATION ====================
+const normalizeBaseUrl = (url: string) => url.trim().replace(/\/+$/, '');
+
+const resolveApiBaseUrl = () => {
+  const aadhaarEnvBaseUrl = process.env.EXPO_PUBLIC_AADHAAR_API_BASE_URL;
+  if (aadhaarEnvBaseUrl && aadhaarEnvBaseUrl.trim().length > 0) {
+    return normalizeBaseUrl(aadhaarEnvBaseUrl);
+  }
+
+  const envBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (envBaseUrl && envBaseUrl.trim().length > 0) {
+    return normalizeBaseUrl(envBaseUrl);
+  }
+
+  if (!__DEV__) {
+    return normalizeBaseUrl(BASE_URL);
+  }
+
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+
+  const ip = hostUri
+    ? hostUri.split(':')[0]
+    : Platform.OS === 'android'
+      ? '10.0.2.2'
+      : 'localhost';
+
+  // Aadhaar backend routes are served from backend/server.js on port 5000.
+  return `http://${ip}:5000`;
+};
+
+const getCandidateApiBaseUrls = (): string[] => {
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+
+  const hostIp = hostUri ? hostUri.split(':')[0] : undefined;
+
+  const normalizedBase = normalizeBaseUrl(BASE_URL);
+  const baseWithPort5000 = normalizedBase.replace(/:\d+$/, ':5000');
+
+  const candidates = [
+    process.env.EXPO_PUBLIC_AADHAAR_API_BASE_URL,
+    process.env.EXPO_PUBLIC_API_BASE_URL,
+    normalizedBase,
+    baseWithPort5000,
+    hostIp ? `http://${hostIp}:5000` : undefined,
+    __DEV__ && Platform.OS === 'android' ? 'http://10.0.2.2:5000' : undefined,
+    __DEV__ ? 'http://localhost:5000' : undefined,
+    __DEV__ ? 'http://127.0.0.1:5000' : undefined,
+    // Reuse the same public tunnel configured elsewhere in the app when available.
+    'https://curvy-sides-carry.loca.lt',
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeBaseUrl);
+
+  return [...new Set(candidates)];
+};
+
 // Backend API URL for Aadhaar endpoints
-const API_BASE_URL = BASE_URL.replace(':3000', ':3001'); // Server runs on port 3001
+const API_BASE_URL = resolveApiBaseUrl();
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -80,9 +143,41 @@ export interface ConfigStatus {
 
 class AadhaarService {
   private currentSessionId: string | null = null;
+  private baseURL: string;
 
   constructor() {
+    this.baseURL = API_BASE_URL;
     this.loadStoredSession();
+  }
+
+  private async requestWithFallback(
+    endpoint: string,
+    options?: RequestInit,
+  ): Promise<any> {
+    const candidateBaseUrls = [this.baseURL, ...getCandidateApiBaseUrls()].filter(
+      (value, index, array) => array.indexOf(value) === index,
+    );
+
+    const attemptedUrls: string[] = [];
+    let lastError: any;
+
+    for (const baseUrl of candidateBaseUrls) {
+      const url = `${baseUrl}${endpoint}`;
+      attemptedUrls.push(url);
+      try {
+        const response = await fetch(url, options);
+        const data = await response.json();
+        this.baseURL = baseUrl;
+        return { response, data };
+      } catch (error: any) {
+        lastError = error;
+      }
+    }
+
+    const message = `Network request failed. Tried: ${attemptedUrls.join(' | ')}`;
+    const finalError = new Error(message) as Error & { originalError?: any };
+    finalError.originalError = lastError;
+    throw finalError;
   }
 
   /**
@@ -128,9 +223,12 @@ class AadhaarService {
    */
   public async checkApiStatus(): Promise<ConfigStatus> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/aadhaar/config-status`);
-      const data = await response.json();
-      return data;
+      const { data } = await this.requestWithFallback('/api/aadhaar/test');
+      return {
+        configured: !!data.configured,
+        provider: 'Surepass',
+        message: data.message || 'Aadhaar API configuration check completed',
+      };
     } catch (error: any) {
       console.error('[Aadhaar] Config check error:', error);
       return {
@@ -208,7 +306,7 @@ class AadhaarService {
         return { success: false, error: validation.error };
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/aadhaar/request-otp`, {
+      const { data } = await this.requestWithFallback('/api/aadhaar/generate-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -218,18 +316,16 @@ class AadhaarService {
         }),
       });
 
-      const data = await response.json();
-
       if (data.success) {
-        // Store session ID for verification
-        if (data.sessionId) {
-          await this.storeSession(data.sessionId);
+        // Backend returns client_id for the verify step.
+        if (data.client_id) {
+          await this.storeSession(data.client_id);
         }
 
         return {
           success: true,
-          sessionId: data.sessionId,
-          referenceId: data.referenceId,
+          sessionId: data.client_id,
+          referenceId: data.reference_id,
           message: data.message || 'OTP sent to registered mobile number',
           transactionId: data.transactionId,
         };
@@ -237,8 +333,8 @@ class AadhaarService {
 
       return {
         success: false,
-        error: data.error || 'Failed to send OTP',
-        setupRequired: data.setupRequired,
+        error: data.message || data.error || 'Failed to send OTP',
+        setupRequired: String(data.message || '').toLowerCase().includes('not configured'),
       };
     } catch (error: any) {
       console.error('[Aadhaar] Request OTP error:', error);
@@ -270,32 +366,51 @@ class AadhaarService {
         };
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/aadhaar/verify-otp`, {
+      const { data } = await this.requestWithFallback('/api/aadhaar/verify-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sessionId: session,
+          client_id: session,
           otp,
         }),
       });
 
-      const data = await response.json();
-
       if (data.success && data.data) {
+        const mappedData: AadhaarData = {
+          uid: data.data.aadhaar_number || 'XXXX XXXX XXXX',
+          name: data.data.full_name || '',
+          gender: data.data.gender || '',
+          dob: data.data.dob || '',
+          address: {
+            full: data.data.address?.full_address,
+            house: data.data.address?.house || '',
+            street: data.data.address?.street || '',
+            landmark: data.data.address?.landmark || '',
+            locality: data.data.address?.locality || '',
+            district: data.data.address?.district || '',
+            state: data.data.address?.state || '',
+            pincode: data.data.address?.pincode || '',
+            country: data.data.address?.country || 'India',
+          },
+          photo: data.data.photo_link,
+          verifiedAt: new Date().toISOString(),
+          referenceId: data.data.reference_id,
+        };
+
         // Clear session after successful verification
         await this.clearSession();
 
         // Store Aadhaar data
-        await this.storeAadhaarData(data.data);
+        await this.storeAadhaarData(mappedData);
 
         // Update verification status
-        await this.setVerificationStatus(true, data.data);
+        await this.setVerificationStatus(true, mappedData);
 
         return {
           success: true,
-          data: data.data,
+          data: mappedData,
           message: data.message || 'Aadhaar verified successfully',
         };
       }

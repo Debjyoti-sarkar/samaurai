@@ -1,202 +1,189 @@
-/**
- * Aadhaar Verification Service
- * Sandbox API integration for Aadhaar verification
- */
-
 const axios = require('axios');
+require('dotenv').config();
 
-// Sandbox API Configuration
-const SANDBOX_API_KEY = process.env.AADHAAR_API_KEY;
-const SANDBOX_API_SECRET = process.env.AADHAAR_API_SECRET;
-const SANDBOX_BASE_URL = process.env.AADHAAR_API_BASE_URL || 'https://kyc-api.surepass.io/api/v1';
+const BASE_URL = (process.env.AADHAAR_API_BASE_URL || 'https://kyc-api.surepass.io/api/v1').replace(/\/+$/, '');
+const API_KEY = process.env.AADHAAR_API_KEY;
+const API_SECRET = process.env.AADHAAR_API_SECRET;
+const BEARER_TOKEN = process.env.AADHAAR_BEARER_TOKEN;
 
-/**
- * Generate OTP for Aadhaar verification
- * @param {string} aadhaarNumber - 12-digit Aadhaar number
- * @returns {Promise<Object>} - OTP generation result
- */
-async function generateAadhaarOTP(aadhaarNumber) {
-  try {
-    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
-      throw new Error('Aadhaar API credentials not configured');
-    }
+const buildHeaderCandidates = () => {
+  const common = {
+    'Content-Type': 'application/json',
+    ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
+    ...(API_SECRET ? { 'x-api-secret': API_SECRET } : {}),
+  };
 
-    // Validate Aadhaar number
-    if (!aadhaarNumber || aadhaarNumber.length !== 12 || !/^\d{12}$/.test(aadhaarNumber)) {
-      throw new Error('Invalid Aadhaar number. Must be 12 digits.');
-    }
+  const candidates = [];
 
-    const response = await axios.post(
-      `${SANDBOX_BASE_URL}/aadhaar-v2/generate-otp`,
-      {
-        id_number: aadhaarNumber,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SANDBOX_API_KEY}`,
-          'x-api-key': SANDBOX_API_KEY,
-          'x-api-secret': SANDBOX_API_SECRET,
-        },
+  if (BEARER_TOKEN) {
+    candidates.push({
+      ...common,
+      Authorization: `Bearer ${BEARER_TOKEN}`,
+    });
+  }
+
+  if (API_KEY) {
+    candidates.push({
+      ...common,
+      Authorization: `Bearer ${API_KEY}`,
+    });
+  }
+
+  // Some providers accept x-api headers without Authorization.
+  candidates.push(common);
+
+  return candidates;
+};
+
+const callProviderWithAuthFallback = async (endpoint, payload) => {
+  const headerCandidates = buildHeaderCandidates();
+  let lastError;
+  let firstAuthError;
+
+  for (const headers of headerCandidates) {
+    try {
+      return await axios.post(`${BASE_URL}${endpoint}`, payload, { headers, timeout: 15000 });
+    } catch (error) {
+      lastError = error;
+      const status = error?.response?.status;
+      if (!firstAuthError && (status === 401 || status === 403)) {
+        firstAuthError = error;
       }
-    );
-
-    console.log('Aadhaar OTP Generation Response:', response.data);
-
-    if (response.data.success) {
-      return {
-        success: true,
-        message: 'OTP sent to Aadhaar registered mobile number',
-        client_id: response.data.data?.client_id,
-        reference_id: response.data.data?.reference_id,
-        message_code: response.data.data?.message_code,
-        if_number: response.data.data?.if_number || false,
-        valid_aadhaar: response.data.data?.valid_aadhaar !== false,
-      };
-    } else {
-      throw new Error(response.data.message || 'Failed to generate OTP');
+      if (status && status < 500 && status !== 401 && status !== 403) {
+        throw error;
+      }
     }
+  }
+
+  throw firstAuthError || lastError;
+};
+
+const mapProviderError = (error, fallbackMessage) => {
+  const providerData = error?.response?.data;
+  const providerMessage =
+    providerData?.message ||
+    providerData?.reason ||
+    error?.message ||
+    fallbackMessage;
+
+  const reference = providerData?.transaction_id || providerData?.message_code;
+  const message = reference ? `${providerMessage} (ref: ${reference})` : providerMessage;
+
+  return {
+    message,
+    errorCode: providerData?.error_code || providerData?.code,
+  };
+};
+
+// Generate OTP
+const generateAadhaarOTP = async (aadhaar) => {
+  try {
+    if (!API_KEY || !API_SECRET) {
+      throw new Error('AADHAAR_API_KEY or AADHAAR_API_SECRET is missing in backend environment');
+    }
+
+    const response = await callProviderWithAuthFallback('/aadhaar-v2/generate-otp', {
+      id_number: aadhaar,
+    });
+
+    if (response.data?.success === false) {
+      return {
+        success: false,
+        message: response.data?.message || 'Failed to generate OTP',
+        error: response.data?.error_code || response.data?.code || 'GENERATION_FAILED',
+      };
+    }
+
+    return {
+      success: true,
+      message: response.data?.message || 'OTP sent successfully',
+      client_id: response.data?.data?.client_id,
+      reference_id: response.data?.data?.reference_id,
+      message_code: response.data?.data?.message_code,
+      if_number: response.data?.data?.if_number || false,
+      valid_aadhaar: response.data?.data?.valid_aadhaar !== false,
+    };
   } catch (error) {
-    console.error('Aadhaar OTP Generation Error:', error.response?.data || error.message);
-    
+    console.error('Generate OTP Error:', error.response?.data || error.message);
+    const mapped = mapProviderError(error, 'Failed to generate OTP');
     return {
       success: false,
-      message: error.response?.data?.message || error.message || 'Failed to generate OTP',
-      error: error.response?.data?.error_code || 'GENERATION_FAILED',
+      message: mapped.message,
+      error: mapped.errorCode || 'GENERATION_FAILED',
     };
   }
-}
+};
 
-/**
- * Verify Aadhaar OTP and get details
- * @param {string} client_id - Client ID from OTP generation
- * @param {string} otp - OTP received on Aadhaar registered mobile
- * @returns {Promise<Object>} - Verification result with Aadhaar details
- */
-async function verifyAadhaarOTP(client_id, otp) {
+// Verify OTP
+const verifyAadhaarOTP = async (client_id, otp) => {
   try {
-    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
-      throw new Error('Aadhaar API credentials not configured');
+    if (!API_KEY || !API_SECRET) {
+      throw new Error('AADHAAR_API_KEY or AADHAAR_API_SECRET is missing in backend environment');
     }
 
-    if (!client_id) {
-      throw new Error('Client ID is required');
-    }
+    const response = await callProviderWithAuthFallback('/aadhaar-v2/submit-otp', {
+      client_id,
+      otp,
+    });
 
-    if (!otp || otp.length !== 6) {
-      throw new Error('Invalid OTP. Must be 6 digits.');
-    }
-
-    const response = await axios.post(
-      `${SANDBOX_BASE_URL}/aadhaar-v2/submit-otp`,
-      {
-        client_id: client_id,
-        otp: otp,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SANDBOX_API_KEY}`,
-          'x-api-key': SANDBOX_API_KEY,
-          'x-api-secret': SANDBOX_API_SECRET,
-        },
-      }
-    );
-
-    console.log('Aadhaar OTP Verification Response:', response.data);
-
-    if (response.data.success) {
-      const data = response.data.data;
-      
+    if (response.data?.success === false) {
       return {
-        success: true,
-        message: 'Aadhaar verified successfully',
-        verified: true,
-        data: {
-          full_name: data.full_name,
-          aadhaar_number: data.aadhaar_number,
-          dob: data.dob,
-          gender: data.gender,
-          address: {
-            house: data.house,
-            street: data.street,
-            landmark: data.landmark,
-            locality: data.locality,
-            vtc: data.vtc,
-            subdivision: data.subdivision,
-            district: data.district,
-            state: data.state,
-            country: data.country,
-            pincode: data.zip,
-            full_address: data.address,
-          },
-          photo_link: data.photo_link,
-          has_image: data.has_image,
-          mobile_verified: data.mobile_verified,
-          reference_id: data.reference_id,
-        },
+        success: false,
+        verified: false,
+        message: response.data?.message || 'OTP verification failed',
+        error: response.data?.error_code || response.data?.code || 'VERIFICATION_FAILED',
       };
-    } else {
-      throw new Error(response.data.message || 'OTP verification failed');
     }
+
+    const data = response.data?.data || {};
+
+    return {
+      success: true,
+      verified: true,
+      message: response.data?.message || 'Aadhaar verified successfully',
+      data: {
+        full_name: data.full_name,
+        aadhaar_number: data.aadhaar_number,
+        dob: data.dob,
+        gender: data.gender,
+        address: {
+          house: data.house,
+          street: data.street,
+          landmark: data.landmark,
+          locality: data.locality,
+          vtc: data.vtc,
+          subdivision: data.subdivision,
+          district: data.district,
+          state: data.state,
+          country: data.country,
+          pincode: data.zip,
+          full_address: data.address,
+        },
+        photo_link: data.photo_link,
+        has_image: data.has_image,
+        mobile_verified: data.mobile_verified,
+        reference_id: data.reference_id,
+      },
+    };
   } catch (error) {
-    console.error('Aadhaar OTP Verification Error:', error.response?.data || error.message);
-    
+    console.error('Verify OTP Error:', error.response?.data || error.message);
+    const mapped = mapProviderError(error, 'OTP verification failed');
     return {
       success: false,
       verified: false,
-      message: error.response?.data?.message || error.message || 'OTP verification failed',
-      error: error.response?.data?.error_code || 'VERIFICATION_FAILED',
+      message: mapped.message,
+      error: mapped.errorCode || 'VERIFICATION_FAILED',
     };
   }
-}
+};
 
-/**
- * Verify Aadhaar without OTP (offline verification using XML)
- * This is for cases where you have the Aadhaar XML file
- * @param {Object} xmlData - Aadhaar XML data
- * @returns {Promise<Object>} - Verification result
- */
-async function verifyAadhaarOffline(xmlData) {
-  try {
-    if (!SANDBOX_API_KEY || !SANDBOX_API_SECRET) {
-      throw new Error('Aadhaar API credentials not configured');
-    }
-
-    const response = await axios.post(
-      `${SANDBOX_BASE_URL}/aadhaar/offline-xml`,
-      xmlData,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SANDBOX_API_KEY}`,
-          'x-api-key': SANDBOX_API_KEY,
-          'x-api-secret': SANDBOX_API_SECRET,
-        },
-      }
-    );
-
-    if (response.data.success) {
-      return {
-        success: true,
-        verified: true,
-        message: 'Aadhaar XML verified successfully',
-        data: response.data.data,
-      };
-    } else {
-      throw new Error(response.data.message || 'XML verification failed');
-    }
-  } catch (error) {
-    console.error('Aadhaar Offline Verification Error:', error.response?.data || error.message);
-    
-    return {
-      success: false,
-      verified: false,
-      message: error.response?.data?.message || error.message || 'XML verification failed',
-      error: error.response?.data?.error_code || 'OFFLINE_VERIFICATION_FAILED',
-    };
-  }
-}
+// Optional (offline)
+const verifyAadhaarOffline = async () => {
+  return {
+    success: false,
+    message: 'Offline verification not implemented',
+  };
+};
 
 module.exports = {
   generateAadhaarOTP,

@@ -44,6 +44,7 @@ import QrScreen from "@/screens/QrScreen";
 import GenerateQRScreen from "@/screens/GenerateQRScreen";
 import BiometricAuthScreen from "@/screens/BiometricAuthScreen";
 import SpamDetectionScreen from "@/screens/SpamDetectionScreen";
+import OTPVerificationScreen from "@/screens/OTPVerificationScreen";
 import { PaymentOrder } from "@/services/paymentGateway";
 import { FraudAnalysis } from "@/services/RealTimeSMSMonitor";
 
@@ -63,6 +64,13 @@ export type RootStackParamList = {
     | { recipient?: string; amount?: string; contactName?: string }
     | undefined;
   ContactPicker: undefined;
+  OTPVerification:
+    | {
+        phoneNumber?: string;
+        purpose?: 'login' | 'transaction' | 'registration' | 'reset';
+        amount?: number;
+        recipient?: string;
+      }
   PaymentProcessing: { paymentOrder: PaymentOrder };
   QRScanner: undefined;
   FraudScan: undefined;
@@ -241,6 +249,12 @@ export default function RootNavigator() {
       />
 
       {/* MAIN APP */}
+      <Stack.Screen
+        name="OTPVerification"
+        component={OTPVerificationScreen}
+        options={{ headerTitle: "Verify OTP" }}
+      />
+
       <Stack.Screen
         name="Dashboard"
         component={DashboardTabs}

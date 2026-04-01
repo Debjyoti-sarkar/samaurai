@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNexaSafe } from "@/contexts/NexaSafeContext";
 import { Spacing, BorderRadius, KAVACHColors, Shadows } from "@/constants/theme";
 import { useScreenSecurity } from "@/hooks/useScreenSecurity";
+import { trackActivity } from "@/utils/tracker";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -152,6 +153,18 @@ export default function BalanceScreen() {
     setRefreshing(false);
   };
 
+  const handleAccountOpen = async (accountId: string) => {
+    try {
+      await trackActivity({
+        accountId,
+        timestamp: new Date().toISOString(),
+        userId: userData?.phoneNumber || "mock-user-001",
+      });
+    } catch (error) {
+      console.warn("Failed to track account activity", error);
+    }
+  };
+
   return (
     <ScreenScrollView
       refreshControl={
@@ -190,7 +203,9 @@ export default function BalanceScreen() {
             accountNumber={account.accountNumber}
             balance={showBalance ? account.balance : 0}
             isLinked={account.isLinked}
-            onPress={() => {}}
+            onPress={() => {
+              void handleAccountOpen(account.id);
+            }}
           />
         ))}
       </View>

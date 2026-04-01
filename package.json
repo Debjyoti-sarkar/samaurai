@@ -27,6 +27,7 @@
     "buffer": "^6.0.3",
     "cors": "^2.8.5",
     "crypto-js": "^4.2.0",
+    "dependencies": "^0.0.1",
     "expo": "~54.0.25",
     "expo-av": "~16.0.8",
     "expo-blur": "^15.0.7",

@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KAVACH - Advanced Security Intelligence Platform</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.21.0/vis.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -35,10 +34,9 @@
             background: linear-gradient(135deg, var(--bg-darker) 0%, #0f1629 50%, #1a1a3a 100%);
             color: var(--text-primary);
             min-height: 100vh;
-            overflow-x: hidden;
+            display: flex;
         }
 
-        /* Animated background */
         .animated-bg {
             position: fixed;
             inset: 0;
@@ -76,15 +74,115 @@
             50% { transform: translateY(-30px) translateX(20px); }
         }
 
-        .container {
-            position: relative;
-            z-index: 1;
-            max-width: 1600px;
-            margin: 0 auto;
-            padding: 0;
+        /* Sidebar */
+        .sidebar {
+            width: 250px;
+            background: rgba(10, 14, 39, 0.8);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 500;
+            backdrop-filter: blur(10px);
         }
 
-        /* Header */
+        .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-logo-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 20px;
+        }
+
+        .sidebar-logo h3 {
+            font-size: 16px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-section {
+            margin-bottom: 25px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .nav-item {
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+            border: 1px solid transparent;
+            position: relative;
+        }
+
+        .nav-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.3);
+            color: var(--accent-blue);
+        }
+
+        .nav-item.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .nav-item i {
+            width: 20px;
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-red);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .main-wrapper {
+            flex: 1;
+            margin-left: 250px;
+            display: flex;
+            flex-direction: column;
+        }
+
         header {
             border-bottom: 1px solid var(--border-color);
             background: rgba(10, 14, 39, 0.7);
@@ -99,49 +197,48 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            max-width: 1600px;
-            margin: 0 auto;
+            gap: 20px;
         }
 
-        header .logo {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        header .logo-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 900;
-            font-size: 24px;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
-        }
-
-        header .logo-text h1 {
+        header h2 {
             font-size: 24px;
             font-weight: 700;
-            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
-        header .logo-text p {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-        }
-
-        header .controls {
+        .header-controls {
             display: flex;
             gap: 15px;
             align-items: center;
             flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            flex: 1;
+            max-width: 300px;
+        }
+
+        .search-box input {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            width: 100%;
+            font-size: 13px;
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-box input:focus {
+            outline: none;
         }
 
         .status-badge {
@@ -162,29 +259,18 @@
             color: #10b981;
         }
 
-        .status-badge.disconnected {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: rgba(239, 68, 68, 0.3);
-            color: #ef4444;
-        }
-
         .status-indicator {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            display: inline-block;
-            animation: pulse-anim 2s ease-in-out infinite;
+            animation: pulse-indicator 2s ease-in-out infinite;
         }
 
         .status-indicator.connected {
             background: #10b981;
         }
 
-        .status-indicator.disconnected {
-            background: #ef4444;
-        }
-
-        @keyframes pulse-anim {
+        @keyframes pulse-indicator {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
@@ -204,6 +290,8 @@
 
         button:hover {
             background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
         button.primary {
@@ -216,9 +304,10 @@
             box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
         }
 
-        /* Main content */
         main {
+            flex: 1;
             padding: 30px;
+            overflow-y: auto;
             animation: fadeIn 0.5s ease-out;
         }
 
@@ -227,7 +316,6 @@
             to { opacity: 1; }
         }
 
-        /* KPI Grid */
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -243,12 +331,31 @@
             backdrop-filter: blur(10px);
             transition: all 0.3s;
             cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            inset: -100%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: all 0.5s;
         }
 
         .kpi-card:hover {
             border-color: var(--accent-blue);
             box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
-            transform: translateY(-2px);
+            transform: translateY(-5px);
+        }
+
+        .kpi-card:hover::before {
+            animation: shimmer 0.5s;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
 
         .kpi-label {
@@ -257,17 +364,6 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .kpi-label::before {
-            content: '';
-            width: 3px;
-            height: 12px;
-            border-radius: 2px;
-            background: var(--accent-blue);
         }
 
         .kpi-value {
@@ -278,21 +374,11 @@
 
         .kpi-change {
             font-size: 12px;
-            color: var(--text-secondary);
-            display: flex;
-            align-items: center;
-            gap: 4px;
         }
 
-        .kpi-change.positive {
-            color: var(--accent-green);
-        }
+        .kpi-change.positive { color: var(--accent-green); }
+        .kpi-change.negative { color: var(--accent-red); }
 
-        .kpi-change.negative {
-            color: var(--accent-red);
-        }
-
-        /* Charts Container */
         .charts-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -306,6 +392,12 @@
             border-radius: 12px;
             padding: 20px;
             backdrop-filter: blur(10px);
+            transition: all 0.3s;
+        }
+
+        .chart-card:hover {
+            border-color: rgba(59, 130, 246, 0.5);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.1);
         }
 
         .chart-title {
@@ -313,17 +405,6 @@
             font-weight: 600;
             margin-bottom: 15px;
             color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .chart-title::before {
-            content: '';
-            width: 3px;
-            height: 16px;
-            border-radius: 2px;
-            background: var(--accent-blue);
         }
 
         .chart-container {
@@ -331,7 +412,6 @@
             height: 300px;
         }
 
-        /* Table */
         .table-card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
@@ -339,7 +419,36 @@
             padding: 20px;
             backdrop-filter: blur(10px);
             margin-bottom: 30px;
-            overflow-x: auto;
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .table-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"], select {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
         }
 
         table {
@@ -357,6 +466,12 @@
             border-bottom: 1px solid var(--border-color);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        table th:hover {
+            background: rgba(59, 130, 246, 0.1);
         }
 
         table td {
@@ -365,8 +480,67 @@
             font-size: 13px;
         }
 
+        table tbody tr {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
         table tbody tr:hover {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid var(--accent-blue);
+            padding-left: 9px;
+        }
+
+        .expand-btn {
+            background: none;
+            border: none;
+            color: var(--accent-blue);
+            cursor: pointer;
+            font-size: 14px;
+            transition: transform 0.3s;
+            padding: 0;
+        }
+
+        .expand-btn.expanded {
+            transform: rotate(90deg);
+        }
+
+        .expand-row {
+            display: none;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .expand-row.show {
+            display: table-row;
+            animation: slideDown 0.3s;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .expand-content {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .detail-item {
+            margin-bottom: 15px;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            font-size: 13px;
+            color: var(--text-primary);
         }
 
         .badge {
@@ -379,109 +553,78 @@
             white-space: nowrap;
         }
 
-        .badge.critical {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
+        .badge.critical { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge.high { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge.medium { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge.low { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s;
         }
 
-        .badge.high {
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-
-        .badge.medium {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--accent-blue);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-        }
-
-        .badge.low {
-            background: rgba(16, 185, 129, 0.2);
-            color: var(--accent-green);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        /* Wide charts */
-        .wide-charts {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .wide-chart-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
-
-        .wide-chart-container {
-            position: relative;
-            height: 350px;
-        }
-
-        /* Three column layout */
-        .three-col-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        /* Heatmap */
-        .heatmap-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
-            margin: 20px 0;
-        }
-
-        .heatmap-cell {
-            aspect-ratio: 1;
-            border-radius: 4px;
+        .modal.show {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
-            font-weight: 600;
+        }
+
+        .modal-content {
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 15px;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
             cursor: pointer;
-            transition: all 0.2s;
+            padding: 0;
+            transition: all 0.3s;
         }
 
-        .heatmap-cell:hover {
-            transform: scale(1.1);
+        .close-btn:hover {
+            color: var(--text-primary);
+            transform: rotate(90deg);
         }
 
-        /* Responsive */
-        @media (max-width: 1400px) {
-            .charts-section {
-                grid-template-columns: 1fr;
-            }
-            .three-col-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+        .modal-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
 
-        @media (max-width: 768px) {
-            main {
-                padding: 15px;
-            }
-            .kpi-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-            .three-col-grid {
-                grid-template-columns: 1fr;
-            }
-            header .controls {
-                flex-wrap: wrap;
-            }
-        }
-
-        /* Progress bar */
         .progress-bar {
             width: 100%;
             height: 6px;
@@ -494,327 +637,500 @@
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
-            transition: width 0.3s ease;
+            transition: width 0.5s ease;
         }
 
-        input, select {
-            padding: 8px 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: var(--text-primary);
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            position: relative;
+            padding-left: 30px;
+        }
+
+        .timeline-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            position: absolute;
+            left: 0;
+            top: 5px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .timeline-content {
+            flex: 1;
+        }
+
+        .timeline-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .timeline-title {
             font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 5px;
         }
 
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--accent-blue);
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.2);
+        .timeline-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 1200px) {
+            .charts-section { grid-template-columns: 1fr; }
+            .modal-body { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+                left: -200px;
+            }
+            .main-wrapper { margin-left: 0; }
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
+            main { padding: 15px; }
+            header .header-controls { width: 100%; }
+            .search-box { max-width: 100%; }
         }
     </style>
 </head>
 <body>
     <div class="animated-bg"></div>
 
-    <!-- Header -->
-    <header>
-        <div class="header-content">
-            <div class="logo">
-                <div class="logo-icon">⚔</div>
-                <div class="logo-text">
-                    <h1>KAVACH</h1>
-                    <p>Advanced Security Intelligence Platform v2.0</p>
-                </div>
-            </div>
-            <div class="controls">
-                <div id="apiStatus" class="status-badge disconnected">
-                    <span class="status-indicator disconnected"></span>
-                    <span id="statusText">Disconnected</span>
-                </div>
-                <input type="text" id="apiUrl" placeholder="API URL" value="http://localhost:5000" style="width: 180px;">
-                <input type="text" id="jwtToken" placeholder="JWT Token" style="width: 200px;">
-                <button class="primary" onclick="connectAPI()">Connect</button>
-                <button onclick="refreshData()">Refresh</button>
-            </div>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">⚔</div>
+            <h3>KAVACH</h3>
         </div>
-    </header>
 
-    <!-- Main Content -->
-    <main class="container">
-        <!-- KPI Cards -->
-        <div class="kpi-grid">
-            <div class="kpi-card" onclick="showDetails('users')">
-                <div class="kpi-label">👥 Total Users</div>
-                <div class="kpi-value">2,847</div>
-                <div class="kpi-change positive">↑ 12% from last month</div>
+        <div class="nav-section">
+            <div class="nav-label">Main</div>
+            <div class="nav-item active" onclick="switchView('dashboard')">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
             </div>
-            <div class="kpi-card" onclick="showDetails('devices')">
-                <div class="kpi-label">📱 Registered Devices</div>
-                <div class="kpi-value">5,324</div>
-                <div class="kpi-change positive">↑ 8% from last month</div>
+            <div class="nav-item" onclick="switchView('threats')">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>Threats</span>
+                <div class="notification-dot"></div>
             </div>
-            <div class="kpi-card" onclick="showDetails('transactions')">
-                <div class="kpi-label">💳 Transactions</div>
-                <div class="kpi-value">43.2K</div>
-                <div class="kpi-change positive">↑ 23% from last month</div>
-            </div>
-            <div class="kpi-card" onclick="showDetails('threats')">
-                <div class="kpi-label">⚠️ Active Threats</div>
-                <div class="kpi-value">157</div>
-                <div class="kpi-change negative">↑ 5% from last month</div>
-            </div>
-            <div class="kpi-card" onclick="showDetails('high-risk')">
-                <div class="kpi-label">🔴 High Risk Events</div>
-                <div class="kpi-value">48</div>
-                <div class="kpi-change negative">↑ 2 since last hour</div>
-            </div>
-            <div class="kpi-card" onclick="showDetails('cases')">
-                <div class="kpi-label">📁 Open Cases</div>
-                <div class="kpi-value">23</div>
-                <div class="kpi-change positive">↓ 1 from yesterday</div>
-            </div>
-            <div class="kpi-card" onclick="showDetails('investigations')">
-                <div class="kpi-label">🔍 Investigations</div>
-                <div class="kpi-value">12</div>
-                <div class="kpi-change positive">↑ 1 new today</div>
-            </div>
-            <div class="kpi-card" onclick="showDetails('detection-rate')">
-                <div class="kpi-label">✓ Detection Rate</div>
-                <div class="kpi-value">94.8%</div>
-                <div class="kpi-change positive">↑ 2.1% improvement</div>
+            <div class="nav-item" onclick="switchView('cases')">
+                <i class="fas fa-folder-open"></i>
+                <span>Cases</span>
             </div>
         </div>
 
-        <!-- Timeline Chart -->
-        <div class="wide-chart-card">
-            <div class="chart-title">🔴 Risk Level Trends Over Time (Last 15 Time Periods)</div>
-            <div class="wide-chart-container">
-                <canvas id="trendChart"></canvas>
+        <div class="nav-section">
+            <div class="nav-label">Intelligence</div>
+            <div class="nav-item" onclick="switchView('events')">
+                <i class="fas fa-stream"></i>
+                <span>Events</span>
+            </div>
+            <div class="nav-item" onclick="switchView('analytics')">
+                <i class="fas fa-chart-bar"></i>
+                <span>Analytics</span>
+            </div>
+            <div class="nav-item" onclick="switchView('graph')">
+                <i class="fas fa-project-diagram"></i>
+                <span>Knowledge Graph</span>
             </div>
         </div>
 
-        <!-- Three Column Charts -->
-        <div class="three-col-grid">
-            <div class="chart-card">
-                <div class="chart-title">📊 Fraud Risk Distribution</div>
-                <div class="chart-container">
-                    <canvas id="riskDistributionChart"></canvas>
-                </div>
+        <div class="nav-section">
+            <div class="nav-label">Tools</div>
+            <div class="nav-item" onclick="openSettings()">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
             </div>
-            <div class="chart-card">
-                <div class="chart-title">📈 Event Types Breakdown</div>
-                <div class="chart-container">
-                    <canvas id="eventTypesChart"></canvas>
-                </div>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">📋 Case Status Overview</div>
-                <div class="chart-container">
-                    <canvas id="caseStatusChart"></canvas>
-                </div>
+            <div class="nav-item" onclick="exportData()">
+                <i class="fas fa-download"></i>
+                <span>Export</span>
             </div>
         </div>
+    </aside>
 
-        <!-- Behavioral Analytics -->
-        <div class="charts-section">
-            <div class="chart-card">
-                <div class="chart-title">⌨️ Typing Speed (WPM) Trend</div>
-                <div class="chart-container">
-                    <canvas id="typingSpeedChart"></canvas>
+    <!-- Main Wrapper -->
+    <div class="main-wrapper">
+        <!-- Header -->
+        <header>
+            <div class="header-content">
+                <h2 id="pageTitle">📊 Security Dashboard</h2>
+                <div class="header-controls">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search entities..." onkeyup="globalSearch(this.value)">
+                    </div>
+                    <div id="apiStatus" class="status-badge disconnected">
+                        <span class="status-indicator disconnected"></span>
+                        <span>Disconnected</span>
+                    </div>
+                    <input type="text" id="apiUrl" placeholder="API URL" value="http://localhost:5000" style="width: 140px;">
+                    <input type="text" id="jwtToken" placeholder="Token" style="width: 140px;">
+                    <button class="primary" onclick="connectAPI()">Connect</button>
                 </div>
             </div>
-            <div class="chart-card">
-                <div class="chart-title">🌐 Network Speed (Mbps)</div>
-                <div class="chart-container">
-                    <canvas id="networkSpeedChart"></canvas>
+        </header>
+
+        <!-- Main Content -->
+        <main class="container">
+            <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card" onclick="openKPIModal('users', '2,847')">
+                    <div class="kpi-label">👥 Total Users</div>
+                    <div class="kpi-value">2,847</div>
+                    <div class="kpi-change positive">↑ 12% from last month</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('devices', '5,324')">
+                    <div class="kpi-label">📱 Devices</div>
+                    <div class="kpi-value">5,324</div>
+                    <div class="kpi-change positive">↑ 8% from last month</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('transactions', '43.2K')">
+                    <div class="kpi-label">💳 Transactions</div>
+                    <div class="kpi-value">43.2K</div>
+                    <div class="kpi-change positive">↑ 23% from last month</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('threats', '157')">
+                    <div class="kpi-label">⚠️ Threats</div>
+                    <div class="kpi-value">157</div>
+                    <div class="kpi-change negative">↑ 5% from last month</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('high-risk', '48')">
+                    <div class="kpi-label">🔴 High Risk</div>
+                    <div class="kpi-value">48</div>
+                    <div class="kpi-change negative">↑ 2 since last hour</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('cases', '23')">
+                    <div class="kpi-label">📁 Cases</div>
+                    <div class="kpi-value">23</div>
+                    <div class="kpi-change positive">↓ 1 from yesterday</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('investigations', '12')">
+                    <div class="kpi-label">🔍 Investigations</div>
+                    <div class="kpi-value">12</div>
+                    <div class="kpi-change positive">↑ 1 new today</div>
+                </div>
+                <div class="kpi-card" onclick="openKPIModal('detection', '94.8%')">
+                    <div class="kpi-label">✓ Detection</div>
+                    <div class="kpi-value">94.8%</div>
+                    <div class="kpi-change positive">↑ 2.1% improvement</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Advanced Analytics -->
-        <div class="charts-section">
-            <div class="chart-card">
-                <div class="chart-title">⌨️ Keystroke Dynamics (KPM)</div>
-                <div class="chart-container">
-                    <canvas id="keystrokeChart"></canvas>
+            <!-- Charts Section -->
+            <div class="charts-section">
+                <div class="chart-card">
+                    <div class="chart-title">📊 Risk Distribution</div>
+                    <div class="chart-container">
+                        <canvas id="riskChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">📈 Events Over Time</div>
+                    <div class="chart-container">
+                        <canvas id="eventsChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">📋 Case Status</div>
+                    <div class="chart-container">
+                        <canvas id="caseChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title">🎯 Threat Level Trend</div>
+                    <div class="chart-container">
+                        <canvas id="threatChart"></canvas>
+                    </div>
                 </div>
             </div>
-            <div class="chart-card">
-                <div class="chart-title">🔥 Device Risk Heatmap</div>
-                <div style="padding: 20px 0;">
-                    <div class="heatmap-grid" id="heatmapGrid"></div>
+
+            <!-- Events Table -->
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="chart-title">📊 Real-time Events</div>
+                    <button class="primary" onclick="refreshTable('events')" style="padding: 6px 12px;"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+                <div class="table-controls">
+                    <select id="eventFilter" onchange="filterTable('events', this.value)">
+                        <option value="">All Events</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                    </select>
+                </div>
+                <table id="eventsTable">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Timestamp</th>
+                            <th onclick="sortTable(1)">Event Type</th>
+                            <th>User</th>
+                            <th>Risk Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsTableBody">
+                        <tr onclick="expandRow(this)">
+                            <td><button class="expand-btn"><i class="fas fa-chevron-right"></i></button></td>
+                            <td>2026-04-01 14:32</td>
+                            <td><strong>Suspicious Login</strong></td>
+                            <td>user_2847</td>
+                            <td><span class="badge critical">89/100</span></td>
+                            <td><span class="badge critical">ALERT</span></td>
+                        </tr>
+                        <tr class="expand-row">
+                            <td colspan="6">
+                                <div class="expand-content">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Event ID</div>
+                                        <div class="detail-value">#EVT-0001</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Risk Factors</div>
+                                        <div class="detail-value">New Location, Unknown Device</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Recommended Action</div>
+                                        <div class="detail-value">Send MFA Challenge</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Detection Engine</div>
+                                        <div class="detail-value">Behavioral Analytics</div>
+                                    </div>
+                                    <button class="primary" style="width: 100%; margin-top: 10px;">Investigate</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="expandRow(this)">
+                            <td><button class="expand-btn"><i class="fas fa-chevron-right"></i></button></td>
+                            <td>2026-04-01 14:28</td>
+                            <td><strong>Fraud Detected</strong></td>
+                            <td>user_5124</td>
+                            <td><span class="badge critical">92/100</span></td>
+                            <td><span class="badge critical">CRITICAL</span></td>
+                        </tr>
+                        <tr class="expand-row">
+                            <td colspan="6">
+                                <div class="expand-content">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Event ID</div>
+                                        <div class="detail-value">#EVT-0002</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Transaction Amount</div>
+                                        <div class="detail-value">$50,000</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Recommended Action</div>
+                                        <div class="detail-value">Block & Escalate</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Risk Reason</div>
+                                        <div class="detail-value">New Device + Large Amount</div>
+                                    </div>
+                                    <button class="primary" style="width: 100%; margin-top: 10px;">Create Case</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="expandRow(this)">
+                            <td><button class="expand-btn"><i class="fas fa-chevron-right"></i></button></td>
+                            <td>2026-04-01 14:15</td>
+                            <td><strong>Device Shared</strong></td>
+                            <td>device_001</td>
+                            <td><span class="badge high">76/100</span></td>
+                            <td><span class="badge high">HIGH</span></td>
+                        </tr>
+                        <tr class="expand-row">
+                            <td colspan="6">
+                                <div class="expand-content">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Event ID</div>
+                                        <div class="detail-value">#EVT-0003</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Users on Device</div>
+                                        <div class="detail-value">3 Different Users</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Recommended Action</div>
+                                        <div class="detail-value">Verify Ownership</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Device Status</div>
+                                        <div class="detail-value">Active / Compromised</div>
+                                    </div>
+                                    <button class="primary" style="width: 100%; margin-top: 10px;">Analyze</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Cases Table -->
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="chart-title">📂 Active Cases</div>
+                    <button class="primary" onclick="openCreateCaseModal()">➕ New Case</button>
+                </div>
+                <table id="casesTable">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th onclick="sortTable(1)">Case ID</th>
+                            <th>Title</th>
+                            <th>Severity</th>
+                            <th>Created</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr onclick="expandRow(this)">
+                            <td><button class="expand-btn"><i class="fas fa-chevron-right"></i></button></td>
+                            <td><strong>CASE-2026-0048</strong></td>
+                            <td>Device Sharing Fraud Ring</td>
+                            <td><span class="badge critical">Critical</span></td>
+                            <td>2 days</td>
+                            <td><div class="progress-bar"><div class="progress-fill" style="width: 75%;"></div></div></td>
+                            <td><span class="badge high">INVESTIGATING</span></td>
+                        </tr>
+                        <tr class="expand-row">
+                            <td colspan="7">
+                                <div class="expand-content">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Assigned To</div>
+                                        <div class="detail-value">Analyst Sarah</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Evidence Count</div>
+                                        <div class="detail-value">12 pieces</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Involved Users</div>
+                                        <div class="detail-value">7 users</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Total Loss</div>
+                                        <div class="detail-value">$125,000</div>
+                                    </div>
+                                    <button class="primary" style="width: 100%; margin-top: 10px;">View Full Details</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr onclick="expandRow(this)">
+                            <td><button class="expand-btn"><i class="fas fa-chevron-right"></i></button></td>
+                            <td><strong>CASE-2026-0047</strong></td>
+                            <td>Account Takeover Pattern</td>
+                            <td><span class="badge high">High</span></td>
+                            <td>3 days</td>
+                            <td><div class="progress-bar"><div class="progress-fill" style="width: 45%;"></div></div></td>
+                            <td><span class="badge medium">OPEN</span></td>
+                        </tr>
+                        <tr class="expand-row">
+                            <td colspan="7">
+                                <div class="expand-content">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Assigned To</div>
+                                        <div class="detail-value">Analyst Mike</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Evidence Count</div>
+                                        <div class="detail-value">5 pieces</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Involved Users</div>
+                                        <div class="detail-value">3 users</div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Next Review</div>
+                                        <div class="detail-value">Today 5:00 PM</div>
+                                    </div>
+                                    <button class="primary" style="width: 100%; margin-top: 10px;">Update Status</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Timeline -->
+            <div class="table-card">
+                <div class="chart-title">📜 Recent Activity Timeline</div>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-time">2026-04-01 14:32:15</div>
+                            <div class="timeline-title">High-Risk Event Detected</div>
+                            <div class="timeline-desc">Suspicious login attempt from new location (Singapore)</div>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-time">2026-04-01 14:28:42</div>
+                            <div class="timeline-title">Fraud Alert Triggered</div>
+                            <div class="timeline-desc">$50,000 transaction detected from unregistered device</div>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-time">2026-04-01 14:15:03</div>
+                            <div class="timeline-title">Device Sharing Pattern Found</div>
+                            <div class="timeline-desc">Device_001 is being used by 3 different users</div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </main>
+    </div>
 
-        <!-- Top Threats Table -->
-        <div class="table-card">
-            <div class="chart-title">🎯 Top Threat Actors & Intrusion Sets</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Threat Level</th>
-                        <th>Last Seen</th>
-                        <th>Targets</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>APT23</strong></td>
-                        <td>Threat Actor</td>
-                        <td><span class="badge critical">Critical</span></td>
-                        <td>2 hours ago</td>
-                        <td>Financial Services</td>
-                        <td><button class="primary" style="padding: 4px 8px; font-size: 11px;">Analyze</button></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Lazarus Group</strong></td>
-                        <td>Threat Actor</td>
-                        <td><span class="badge critical">Critical</span></td>
-                        <td>1 day ago</td>
-                        <td>Energy, Healthcare</td>
-                        <td><button class="primary" style="padding: 4px 8px; font-size: 11px;">Analyze</button></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Operation Stealth</strong></td>
-                        <td>Campaign</td>
-                        <td><span class="badge high">High</span></td>
-                        <td>4 hours ago</td>
-                        <td>Technology</td>
-                        <td><button class="primary" style="padding: 4px 8px; font-size: 11px;">Analyze</button></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Device Abuse Cluster</strong></td>
-                        <td>Fraud Pattern</td>
-                        <td><span class="badge high">High</span></td>
-                        <td>30 minutes ago</td>
-                        <td>Multiple Users</td>
-                        <td><button class="primary" style="padding: 4px 8px; font-size: 11px;">Analyze</button></td>
-                    </tr>
-                    <tr>
-                        <td><strong>Rapid Transaction Set</strong></td>
-                        <td>Activity Pattern</td>
-                        <td><span class="badge medium">Medium</span></td>
-                        <td>1 hour ago</td>
-                        <td>Suspicious</td>
-                        <td><button class="primary" style="padding: 4px 8px; font-size: 11px;">Analyze</button></td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- KPI Modal -->
+    <div id="kpiModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="kpiTitle">Details</h3>
+                <button class="close-btn" onclick="closeModal('kpiModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="kpiBody"></div>
         </div>
+    </div>
 
-        <!-- Events Log Table -->
-        <div class="table-card">
-            <div class="chart-title">📊 Real-time Event Log</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Event Type</th>
-                        <th>User</th>
-                        <th>Risk Score</th>
-                        <th>Details</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="eventLog">
-                    <tr>
-                        <td>2026-04-01 14:32:15</td>
-                        <td>Suspicious Login</td>
-                        <td>user_2847</td>
-                        <td><span class="badge critical">89/100</span></td>
-                        <td>New location: Singapore</td>
-                        <td><span class="badge high">ALERT</span></td>
-                    </tr>
-                    <tr>
-                        <td>2026-04-01 14:28:42</td>
-                        <td>Fraud Detected</td>
-                        <td>user_5124</td>
-                        <td><span class="badge critical">92/100</span></td>
-                        <td>$50,000 transaction from new device</td>
-                        <td><span class="badge critical">CRITICAL</span></td>
-                    </tr>
-                    <tr>
-                        <td>2026-04-01 14:15:03</td>
-                        <td>Device Shared</td>
-                        <td>device_001</td>
-                        <td><span class="badge high">76/100</span></td>
-                        <td>Used by 3 different users</td>
-                        <td><span class="badge high">HIGH</span></td>
-                    </tr>
-                    <tr>
-                        <td>2026-04-01 14:02:18</td>
-                        <td>Unusual Pattern</td>
-                        <td>user_1923</td>
-                        <td><span class="badge medium">65/100</span></td>
-                        <td>10 transactions in 5 minutes</td>
-                        <td><span class="badge medium">MEDIUM</span></td>
-                    </tr>
-                    <tr>
-                        <td>2026-04-01 13:55:47</td>
-                        <td>Normal Activity</td>
-                        <td>user_3456</td>
-                        <td><span class="badge low">15/100</span></td>
-                        <td>Standard transaction processing</td>
-                        <td><span class="badge low">NORMAL</span></td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- Create Case Modal -->
+    <div id="createCaseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Investigation Case</h3>
+                <button class="close-btn" onclick="closeModal('createCaseModal')">&times;</button>
+            </div>
+            <div style="display: grid; gap: 15px;">
+                <input type="text" placeholder="Case Title" id="caseTitle">
+                <textarea placeholder="Description" id="caseDescription" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.05); color: var(--text-primary); min-height: 100px;"></textarea>
+                <select id="caseSeverity">
+                    <option>Select Severity</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                </select>
+                <button class="primary" onclick="createCase()">Create Case</button>
+            </div>
         </div>
-
-        <!-- Open Cases Table -->
-        <div class="table-card">
-            <div class="chart-title">📂 Active Investigation Cases</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Case ID</th>
-                        <th>Title</th>
-                        <th>Severity</th>
-                        <th>Created</th>
-                        <th>Assigned To</th>
-                        <th>Status</th>
-                        <th>Progress</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>CASE-2026-0048</strong></td>
-                        <td>Device Sharing Fraud Ring</td>
-                        <td><span class="badge critical">Critical</span></td>
-                        <td>2 days ago</td>
-                        <td>Analyst Sarah</td>
-                        <td><span class="badge high">INVESTIGATING</span></td>
-                        <td><div class="progress-bar"><div class="progress-fill" style="width: 75%;"></div></div></td>
-                    </tr>
-                    <tr>
-                        <td><strong>CASE-2026-0047</strong></td>
-                        <td>Account Takeover Pattern</td>
-                        <td><span class="badge high">High</span></td>
-                        <td>3 days ago</td>
-                        <td>Analyst Mike</td>
-                        <td><span class="badge medium">OPEN</span></td>
-                        <td><div class="progress-bar"><div class="progress-fill" style="width: 45%;"></div></div></td>
-                    </tr>
-                    <tr>
-                        <td><strong>CASE-2026-0046</strong></td>
-                        <td>Behavioral Anomaly Detection</td>
-                        <td><span class="badge medium">Medium</span></td>
-                        <td>1 week ago</td>
-                        <td>Analyst Lisa</td>
-                        <td><span class="badge low">RESOLVED</span></td>
-                        <td><div class="progress-bar"><div class="progress-fill" style="width: 100%;"></div></div></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </main>
+    </div>
 
     <script>
-        // Color palette
         const colors = {
             blue: 'rgb(59, 130, 246)',
             red: 'rgb(239, 68, 68)',
@@ -826,72 +1142,28 @@
 
         let charts = {};
 
-        // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             initCharts();
-            generateHeatmap();
             loadStoredData();
         });
 
-        function initCharts() {
-            // Trend Chart
-            const trendCtx = document.getElementById('trendChart').getContext('2d');
-            charts.trend = new Chart(trendCtx, {
-                type: 'line',
-                data: {
-                    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15'],
-                    datasets: [
-                        {
-                            label: 'Risk Score',
-                            data: [15, 17, 19, 21, 20, 18, 19, 21, 22, 21, 20, 19, 17, 16, 18],
-                            borderColor: colors.red,
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            borderWidth: 2.5,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 5,
-                            pointBackgroundColor: colors.red,
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2
-                        },
-                        {
-                            label: 'Threat Level',
-                            data: [8, 9, 8, 10, 11, 9, 8, 10, 12, 11, 10, 9, 7, 6, 8],
-                            borderColor: colors.amber,
-                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                            borderWidth: 2.5,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 5,
-                            pointBackgroundColor: colors.amber,
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#a0aec0', font: { size: 13, weight: 600 }, padding: 15 }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
-                            ticks: { color: '#a0aec0', font: { size: 12 } }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#a0aec0', font: { size: 12 } }
-                        }
-                    }
-                }
-            });
+        function switchView(viewName) {
+            const titles = {
+                'dashboard': '📊 Security Dashboard',
+                'threats': '⚠️ Threats & Intrusions',
+                'cases': '📂 Investigation Cases',
+                'events': '📊 Event Log',
+                'analytics': '📈 Advanced Analytics',
+                'graph': '🔗 Knowledge Graph'
+            };
+            document.getElementById('pageTitle').textContent = titles[viewName] || viewName;
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            event.target.closest('.nav-item').classList.add('active');
+        }
 
+        function initCharts() {
             // Risk Distribution
-            const riskCtx = document.getElementById('riskDistributionChart').getContext('2d');
+            const riskCtx = document.getElementById('riskChart').getContext('2d');
             charts.risk = new Chart(riskCtx, {
                 type: 'doughnut',
                 data: {
@@ -903,234 +1175,121 @@
                         borderWidth: 2
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            labels: { color: '#a0aec0', font: { size: 12 }, padding: 15 }
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a0aec0' } } } }
             });
 
-            // Event Types
-            const eventCtx = document.getElementById('eventTypesChart').getContext('2d');
-            charts.events = new Chart(eventCtx, {
-                type: 'bar',
+            // Events Over Time
+            const eventsCtx = document.getElementById('eventsChart').getContext('2d');
+            charts.events = new Chart(eventsCtx, {
+                type: 'line',
                 data: {
-                    labels: ['Login', 'Transaction', 'Device', 'Session', 'Fraud'],
+                    labels: ['00:00', '04:00', '08:00', '12:00', '16:00', '20:00', '24:00'],
                     datasets: [{
-                        label: 'Count',
-                        data: [2847, 5324, 1923, 4502, 157],
-                        backgroundColor: [colors.blue, colors.purple, colors.cyan, colors.green, colors.red],
-                        borderRadius: 6,
-                        borderSkipped: false
+                        label: 'Events', data: [12, 19, 15, 25, 22, 30, 28],
+                        borderColor: colors.blue, backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2.5, fill: true, tension: 0.4
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#a0aec0', font: { size: 12 } } }
-                    },
-                    scales: {
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false },
-                            ticks: { color: '#a0aec0' }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { color: '#a0aec0' }
-                        }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a0aec0' } } }, scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#a0aec0' } } } }
             });
 
             // Case Status
-            const caseCtx = document.getElementById('caseStatusChart').getContext('2d');
+            const caseCtx = document.getElementById('caseChart').getContext('2d');
             charts.cases = new Chart(caseCtx, {
-                type: 'pie',
+                type: 'bar',
                 data: {
-                    labels: ['Open', 'Investigating', 'Resolved', 'Closed'],
-                    datasets: [{
-                        data: [23, 12, 34, 8],
-                        backgroundColor: [colors.red, colors.amber, colors.green, colors.blue],
-                        borderColor: 'rgba(10, 14, 39, 0.8)',
-                        borderWidth: 2
-                    }]
+                    labels: ['Open', 'Investigating', 'On Hold', 'Resolved'],
+                    datasets: [{ label: 'Cases', data: [23, 12, 5, 34], backgroundColor: [colors.red, colors.amber, colors.blue, colors.green], borderRadius: 6 }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#a0aec0', font: { size: 12 } } }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a0aec0' } } } }
             });
 
-            // Typing Speed
-            const typingCtx = document.getElementById('typingSpeedChart').getContext('2d');
-            charts.typing = new Chart(typingCtx, {
+            // Threat Trend
+            const threatCtx = document.getElementById('threatChart').getContext('2d');
+            charts.threat = new Chart(threatCtx, {
                 type: 'line',
                 data: {
-                    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15'],
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                     datasets: [{
-                        label: 'WPM',
-                        data: [68, 69, 70, 71, 72, 73, 74, 75, 76, 75, 74, 73, 72, 71, 70],
-                        borderColor: colors.blue,
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 2.5,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: colors.blue
+                        label: 'Threat Level', data: [15, 18, 16, 22, 19, 25, 21],
+                        borderColor: colors.red, backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderWidth: 2.5, fill: true, tension: 0.4, pointBackgroundColor: colors.red
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#a0aec0', font: { size: 12 } } }
-                    },
-                    scales: {
-                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#a0aec0' } },
-                        x: { grid: { display: false }, ticks: { color: '#a0aec0' } }
-                    }
-                }
-            });
-
-            // Network Speed
-            const networkCtx = document.getElementById('networkSpeedChart').getContext('2d');
-            charts.network = new Chart(networkCtx, {
-                type: 'line',
-                data: {
-                    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15'],
-                    datasets: [{
-                        label: 'Mbps',
-                        data: [82, 83, 85, 86, 87, 88, 87, 86, 89, 88, 87, 86, 85, 84, 83],
-                        borderColor: colors.green,
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        borderWidth: 2.5,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: colors.green
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#a0aec0', font: { size: 12 } } }
-                    },
-                    scales: {
-                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#a0aec0' } },
-                        x: { grid: { display: false }, ticks: { color: '#a0aec0' } }
-                    }
-                }
-            });
-
-            // Keystroke
-            const keystrokeCtx = document.getElementById('keystrokeChart').getContext('2d');
-            charts.keystroke = new Chart(keystrokeCtx, {
-                type: 'line',
-                data: {
-                    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12', 'T13', 'T14', 'T15'],
-                    datasets: [{
-                        label: 'KPM',
-                        data: [315, 318, 320, 328, 330, 327, 325, 330, 322, 320, 318, 315, 312, 310, 312],
-                        borderColor: colors.amber,
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        borderWidth: 2.5,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: colors.amber
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#a0aec0', font: { size: 12 } } }
-                    },
-                    scales: {
-                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)', drawBorder: false }, ticks: { color: '#a0aec0' } },
-                        x: { grid: { display: false }, ticks: { color: '#a0aec0' } }
-                    }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#a0aec0' } } } }
             });
         }
 
-        function generateHeatmap() {
-            const grid = document.getElementById('heatmapGrid');
-            grid.innerHTML = '';
-            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-            const maxRisk = 95;
-
-            days.forEach((day, index) => {
-                const cell = document.createElement('div');
-                const risk = Math.floor(Math.random() * maxRisk);
-                let bgColor = `rgba(16, 185, 129, ${risk / 100})`;
-                if (risk > 75) bgColor = `rgba(239, 68, 68, ${risk / 100})`;
-                else if (risk > 50) bgColor = `rgba(245, 158, 11, ${risk / 100})`;
-                else if (risk > 25) bgColor = `rgba(59, 130, 246, ${risk / 100})`;
-
-                cell.className = 'heatmap-cell';
-                cell.style.backgroundColor = bgColor;
-                cell.style.border = '1px solid rgba(255, 255, 255, 0.1)';
-                cell.title = `${day}: ${risk}% risk`;
-                cell.textContent = risk + '%';
-                grid.appendChild(cell);
-            });
+        function expandRow(element) {
+            const btn = element.querySelector('.expand-btn');
+            const next = element.nextElementSibling;
+            if (next && next.classList.contains('expand-row')) {
+                next.classList.toggle('show');
+                btn.classList.toggle('expanded');
+            }
         }
+
+        function openKPIModal(type, value) {
+            const modal = document.getElementById('kpiModal');
+            const title = document.getElementById('kpiTitle');
+            const body = document.getElementById('kpiBody');
+            
+            const details = {
+                'users': { title: 'User Statistics', data: [['Total Users', '2,847'], ['Active', '2,105'], ['Inactive', '742'], ['New Today', '12'], ['Growth Rate', '+12%'], ['Churn Rate', '0.8%']] },
+                'devices': { title: 'Device Inventory', data: [['Total Devices', '5,324'], ['Active', '4,821'], ['Risky', '157'], ['Shared', '48'], ['New This Week', '+89'], ['Compromised', '12']] },
+                'transactions': { title: 'Transaction Analysis', data: [['Total', '43,200'], ['Successful', '42,156'], ['Failed', '892'], ['Flagged', '152'], ['Avg Value', '$2,450'], ['Growth', '+23%']] },
+                'threats': { title: 'Threat Overview', data: [['Active', '157'], ['Critical', '12'], ['High', '45'], ['Medium', '100'], ['New This Week', '8'], ['Resolved', '23']] },
+                'high-risk': { title: 'High Risk Events', data: [['High Risk Events', '48'], ['Last 24h', '23'], ['Last 7d', '156'], ['Escalated', '8'], ['Top Category', 'Device Sharing'], ['Rate', '5/hour']] },
+                'cases': { title: 'Case Management', data: [['Open Cases', '23'], ['Investigating', '12'], ['On Hold', '5'], ['New Today', '2'], ['Avg Duration', '4.2 days'], ['Resolution Rate', '89%']] },
+                'investigations': { title: 'Investigations', data: [['Active', '12'], ['Closed', '34'], ['Success Rate', '89%'], ['Pending', '3'], ['Avg Team Size', '2.5'], ['Next Review', 'Today']] },
+                'detection': { title: 'Detection Metrics', data: [['Detection Rate', '94.8%'], ['False Positives', '2.1%'], ['True Positives', '92.7%'], ['Improvement', '+2.1%'], ['YTD Average', '91.2%'], ['Target', '95%']] }
+            };
+
+            const info = details[type];
+            title.textContent = info.title;
+            body.innerHTML = info.data.map(([label, val]) => `<div class="detail-item"><div class="detail-label">${label}</div><div class="detail-value" style="font-size: 16px; font-weight: 600;">${val}</div></div>`).join('');
+            modal.classList.add('show');
+        }
+
+        function openModal(id) { document.getElementById(id).classList.add('show'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+        function openCreateCaseModal() { openModal('createCaseModal'); }
+
+        function createCase() {
+            const title = document.getElementById('caseTitle').value;
+            if (title) {
+                alert('✅ Case created: ' + title);
+                closeModal('createCaseModal');
+            }
+        }
+
+        function filterTable(table, value) { console.log(`Filtering ${table} by ${value}`); }
+        function sortTable(col) { console.log(`Sorting by column ${col}`); }
+        function refreshTable(table) { alert('🔄 Refreshing data...'); }
+        function exportData() { alert('📥 Export feature coming soon!'); }
+        function globalSearch(query) { console.log(`Searching: ${query}`); }
+        function openSettings() { alert('⚙️ Settings coming soon!'); }
 
         function connectAPI() {
-            const apiUrl = document.getElementById('apiUrl').value;
             const token = document.getElementById('jwtToken').value;
-
-            if (!token) {
-                alert('Please enter JWT token');
-                return;
-            }
-
-            // Update status
-            const statusBadge = document.getElementById('apiStatus');
-            statusBadge.classList.remove('disconnected');
-            statusBadge.classList.add('connected');
-            document.getElementById('statusText').textContent = 'Connected';
-
-            // Store
+            if (!token) { alert('Please enter JWT token'); return; }
+            const badge = document.getElementById('apiStatus');
+            badge.classList.remove('disconnected');
+            badge.classList.add('connected');
+            badge.innerHTML = '<span class="status-indicator connected"></span><span>Connected</span>';
             localStorage.setItem('jwtToken', token);
-            localStorage.setItem('apiUrl', apiUrl);
-
-            alert('✓ Connected successfully!');
-        }
-
-        function refreshData() {
-            console.log('Refreshing data...');
-            document.getElementById('heatmapGrid').innerHTML = '';
-            generateHeatmap();
+            alert('✅ Connected!');
         }
 
         function loadStoredData() {
             const token = localStorage.getItem('jwtToken');
-            const apiUrl = localStorage.getItem('apiUrl');
             if (token) document.getElementById('jwtToken').value = token;
-            if (apiUrl) document.getElementById('apiUrl').value = apiUrl;
         }
 
-        function showDetails(type) {
-            const details = {
-                users: 'Total Users: 2,847\nActive: 2,105\nInactive: 742\nNew Today: 12\n\nGrowth: 12% month-over-month\nChurn Rate: 0.8%',
-                devices: 'Total Devices: 5,324\nActive: 4,821\nRisky: 157\nShared: 48\n\nNew Devices: +89 this week\nCompromised: 12',
-                transactions: 'Total: 43,200\nSuccessful: 42,156\nFailed: 892\nFlagged: 152\n\nAverage Value: $2,450\nVolume Growth: +23%',
-                threats: 'Active Threats: 157\nCritical: 12\nHigh: 45\nMedium: 100\n\nNew This Week: 8\nResolved: 23',
-                'high-risk': 'High Risk Events: 48\nLast 24h: 23\nLast 7d: 156\nEscalated: 8\n\nTop Category: Device Sharing\nRate: 5 per hour',
-                cases: 'Open Cases: 23\nInvestigating: 12\nOn Hold: 5\nNew Today: 2\n\nAverage Duration: 4.2 days\nResolution Rate: 89%',
-                investigations: 'Active Investigations: 12\nClosed: 34\nSuccess Rate: 89%\nPending Review: 3\n\nAverage Team Size: 2.5\nNext Review: Today',
-                'detection-rate': 'Detection Rate: 94.8%\nFalse Positives: 2.1%\nTrue Positives: 92.7%\nImprovement: +2.1%\n\nYTD Average: 91.2%\nTarget: 95%'
-            };
-
-            alert(details[type] || 'No details available');
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('show');
+            }
         }
     </script>
 </body>

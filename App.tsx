@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NexaSafeProvider, useNexaSafe } from "@/contexts/NexaSafeContext";
+import { SecurityIntelligenceProvider } from "@/contexts/SecurityIntelligenceContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useTheme } from "@/hooks/useTheme";
 import { KAVACHColors } from "@/constants/theme";
@@ -90,12 +91,12 @@ function AppContent() {
   useEffect(() => {
     const enableScreenSecurity = async () => {
       try {
-        await ScreenCapture.preventScreenCaptureAsync();
-        console.log("🔒 Screen capture prevention enabled globally");
+        // await ScreenCapture.preventScreenCaptureAsync();
+        console.log("🔒 Screen capture prevention ENABLED (commented out for dev)");
       } catch (error) {
         console.warn("Failed to enable screen capture prevention:", error);
         // If prevention fails, mark as potential screen recording
-        setScreenRecordingDetected(true);
+        // setScreenRecordingDetected(true);
       }
     };
 
@@ -131,7 +132,7 @@ function AppContent() {
         requireReauth();
 
         // Re-enable screen capture prevention when app becomes active
-        ScreenCapture.preventScreenCaptureAsync().catch(console.warn);
+        // ScreenCapture.preventScreenCaptureAsync().catch(console.warn);
       }
     });
 
@@ -175,7 +176,9 @@ export default function App() {
               <LanguageProvider>
                 <AuthProvider>
                   <NexaSafeProvider>
-                    <AppContent />
+                    <SecurityIntelligenceProvider>
+                      <AppContent />
+                    </SecurityIntelligenceProvider>
                   </NexaSafeProvider>
                 </AuthProvider>
               </LanguageProvider>

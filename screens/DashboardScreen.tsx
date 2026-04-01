@@ -211,6 +211,19 @@ export default function DashboardScreen() {
         <Animated.View entering={FadeInDown.delay(400)} style={styles.section}>
           <ThemedText type="h4" style={styles.sectionTitle}>Security Hub</ThemedText>
           <View style={[styles.hubCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Pressable style={styles.hubRow} onPress={() => navigation.navigate("SecurityInsights" as any)}>
+              <View style={[styles.hubIcon, { backgroundColor: KAVACHColors.sos + '20' }]}>
+                <Feather name="shield" size={20} color={KAVACHColors.sos} />
+              </View>
+              <View style={styles.hubText}>
+                <ThemedText type="body" style={{ fontWeight: '600', color: theme.text }}>Threat Intelligence</ThemedText>
+                <ThemedText type="caption" style={{ color: theme.textSecondary }}>Advanced insights & entity graph</ThemedText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </Pressable>
+            
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
             <Pressable style={styles.hubRow} onPress={() => navigation.navigate("SecurityDashboard")}>
               <View style={[styles.hubIcon, { backgroundColor: KAVACHColors.primary + '20' }]}>
                 <Feather name="lock" size={20} color={KAVACHColors.primary} />

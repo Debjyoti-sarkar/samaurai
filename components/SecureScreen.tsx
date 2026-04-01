@@ -21,10 +21,10 @@ interface SecureScreenProps {
 
 export function SecureScreen({
   children,
-  preventScreenCapture = true,
+  preventScreenCapture = false,
   showBlurOnBackground = true,
   onScreenshotAttempt,
-  warnOnScreenshot = true,
+  warnOnScreenshot = false,
 }: SecureScreenProps) {
   const [isBackground, setIsBackground] = useState(false);
 

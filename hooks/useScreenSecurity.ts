@@ -13,7 +13,7 @@ import * as ScreenCapture from 'expo-screen-capture';
  * Hook to enable/disable screen security when a screen is focused
  * @param enabled - Whether screen security should be enabled for this screen
  */
-export function useScreenSecurity(enabled: boolean = true) {
+export function useScreenSecurity(enabled: boolean = false) {
   // Enable security when screen is focused
   useFocusEffect(
     useCallback(() => {
@@ -49,8 +49,8 @@ export function useScreenSecurity(enabled: boolean = true) {
  */
 async function preventScreenCapture() {
   try {
-    await ScreenCapture.preventScreenCaptureAsync();
-    console.log('[ScreenSecurity] Screen capture prevention enabled');
+    // await ScreenCapture.preventScreenCaptureAsync();
+    console.log('[ScreenSecurity] Screen capture prevention ENABLED (commented out for dev)');
   } catch (error) {
     console.warn('[ScreenSecurity] Failed to prevent screen capture:', error);
   }

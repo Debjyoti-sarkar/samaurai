@@ -47,6 +47,10 @@ import SpamDetectionScreen from "@/screens/SpamDetectionScreen";
 import { PaymentOrder } from "@/services/paymentGateway";
 import { FraudAnalysis } from "@/services/RealTimeSMSMonitor";
 
+import SecurityInsightsScreen from "@/screens/SecurityInsightsScreen";
+import SecurityGraphScreen from "@/screens/SecurityGraphScreen";
+import SecurityAlertsScreen from "@/screens/SecurityAlertsScreen";
+
 export type RootStackParamList = {
   LanguageSelection: undefined;
   PhoneVerification: undefined;
@@ -96,6 +100,9 @@ export type RootStackParamList = {
   GenerateQR: undefined;
   BiometricAuth: undefined;
   SpamDetection: undefined;
+  SecurityInsights: undefined;
+  SecurityGraph: undefined;
+  SecurityAlerts: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -437,6 +444,23 @@ export default function RootNavigator() {
         name="UpiLearning"
         component={UpiLearningScreen}
         options={{ headerTitle: "UPI Learning" }}
+      />
+
+      {/* Security Intelligence System */}
+      <Stack.Screen
+        name="SecurityInsights"
+        component={SecurityInsightsScreen}
+        options={{ headerTitle: "Intelligence Settings" }}
+      />
+      <Stack.Screen
+        name="SecurityGraph"
+        component={SecurityGraphScreen}
+        options={{ headerTitle: "Entity Graph", presentation: "modal" }}
+      />
+      <Stack.Screen
+        name="SecurityAlerts"
+        component={SecurityAlertsScreen}
+        options={{ headerTitle: "Alerts Feeds" }}
       />
     </Stack.Navigator>
   );

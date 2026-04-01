@@ -6,7 +6,7 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-const USE_MOCK_PAYMENTS = false;
+const USE_MOCK_PAYMENTS = true;
 
 function normalizeUrl(url?: string | null): string | null {
   if (!url) return null;
@@ -67,7 +67,9 @@ export interface PaymentResult {
 }
 
 export function isValidUpiId(value: string): boolean {
-  return /^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/i.test(value.trim());
+  const isUpi = /^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z]{2,}$/i.test(value.trim());
+  const isPhone = /^\d{10}$/.test(value.trim());
+  return isUpi || isPhone;
 }
 
 export function buildUpiPaymentUrl(order: PaymentOrder): string {

@@ -1,0 +1,16 @@
+# Quick GitHub Setup for Backend
+
+# 1. Create new repo on GitHub.com
+# Go to: https://github.com/new
+# Name: kavach-backend
+# Keep it public
+# Don't initialize with README
+
+# 2. Run these commands:
+cd d:\KAVACH\KAVACH-App\server
+git init
+git add .
+git commit -m "Initial backend"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/kavach-backend.git
+git push -u origin main

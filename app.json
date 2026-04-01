@@ -1,0 +1,103 @@
+{
+  "expo": {
+    "name": "KAVACH",
+    "slug": "kavach",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "kavach",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kavach.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "KAVACH needs camera access to scan QR codes for payments",
+        "NSFaceIDUsageDescription": "KAVACH uses Face ID for secure authentication",
+        "NSMicrophoneUsageDescription": "KAVACH needs microphone access for voice commands"
+      }
+    },
+
+    "android": {
+      "package": "com.kavach.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F5F1E8",
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_SMS",
+        "android.permission.RECEIVE_SMS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.READ_PHONE_STATE"
+      ]
+    },
+
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F1E8",
+          "dark": {
+            "backgroundColor": "#1A1A1A"
+          }
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow KAVACH to access your camera for QR code scanning"
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow KAVACH to use Face ID for secure authentication"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#FF0000",
+          "defaultChannel": "default",
+          "enableBackgroundRemoteNotifications": false
+        }
+      ],
+      "./plugins/withSMSReceiver"
+    ],
+
+    "experiments": {
+      "reactCompiler": true
+    },
+
+    "extra": {
+      "eas": {
+        "projectId": "06434f81-f689-44f1-b669-dfc663f4d9fe"
+      }
+    }
+  }
+}

@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAVACH - Real-time Behavior Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%); }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .glow-blue { box-shadow: 0 0 30px rgba(59, 130, 246, 0.3); }
+        .glow-green { box-shadow: 0 0 30px rgba(34, 197, 94, 0.3); }
+        .glow-red { box-shadow: 0 0 30px rgba(239, 68, 68, 0.3); }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        #trackingCanvas { touch-action: none; cursor: crosshair; }
+        .score-ring { transition: stroke-dashoffset 0.5s ease-out; }
+        .progress-bar { transition: width 0.3s ease-out; }
+        .stat-card:hover { transform: scale(1.02); transition: transform 0.2s; }
+        .api-status { transition: all 0.3s; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen text-white overflow-x-hidden">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl float"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl float" style="animation-delay: 1s;"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="relative z-10 p-4 border-b border-white/10">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center glow-blue">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">KAVACH</h1>
+                    <p class="text-xs text-gray-400">Real-time Behavioral Biometric Analytics</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- API Status -->
+                <div id="apiStatus" class="api-status flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/50">
+                    <span class="w-2 h-2 rounded-full bg-yellow-500 pulse"></span>
+                    <span class="text-yellow-400 text-xs font-medium">Connecting...</span>
+                </div>
+                <!-- Live Indicator -->
+                <div id="liveStatus" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-500/20 border border-gray-500/50">
+                    <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+                    <span class="text-gray-400 text-xs font-medium">Waiting</span>
+                </div>
+                <button onclick="analyzeNow()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm font-medium transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    Analyze
+                </button>
+                <button onclick="resetAll()" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition">Reset</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- API Configuration Banner -->
+    <div id="apiBanner" class="relative z-10 bg-blue-900/50 border-b border-blue-500/30 px-4 py-2">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2 text-sm">
+                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-blue-300">API Endpoint:</span>
+                <input id="apiUrl" type="text" value="http://localhost:5000"
+                       class="bg-black/30 border border-white/20 rounded px-2 py-1 text-xs w-48 focus:outline-none focus:border-blue-500">
+                <button onclick="testConnection()" class="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Test</button>
+            </div>
+            <div class="text-xs text-gray-400">
+                Run: <code class="bg-black/30 px-2 py-0.5 rounded">cd server/ml && python behavior_api.py</code>
+            </div>
+        </div>
+    </div>
+
+    <main class="relative z-10 max-w-7xl mx-auto p-4">
+        <!-- Top Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <!-- BBA Score -->
+            <div class="glass rounded-xl p-4 stat-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-400 text-xs uppercase tracking-wide">BBA Score</span>
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="text-3xl font-bold" id="topBbaScore">--</div>
+                <div class="flex items-center gap-1 mt-1">
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400" id="bbaStatus">Waiting for data</span>
+                </div>
+            </div>
+
+            <!-- Risk Level -->
+            <div class="glass rounded-xl p-4 stat-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-400 text-xs uppercase tracking-wide">Risk Level</span>
+                    <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center" id="riskIconBg">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="text-3xl font-bold text-gray-400" id="topRiskLevel">--</div>
+                <div class="text-xs text-gray-400 mt-1">Score: <span id="topRiskScore">--</span>/100</div>
+            </div>
+
+            <!-- Data Points -->
+            <div class="glass rounded-xl p-4 stat-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-400 text-xs uppercase tracking-wide">Data Points</span>
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="text-3xl font-bold" id="topDataPoints">0</div>
+                <div class="text-xs text-gray-400 mt-1">Cursor + Keystrokes</div>
+            </div>
+
+            <!-- Anomalies -->
+            <div class="glass rounded-xl p-4 stat-card">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-400 text-xs uppercase tracking-wide">Anomalies</span>
+                    <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="text-3xl font-bold" id="topAnomalies">0</div>
+                <div class="text-xs text-gray-400 mt-1">Detected issues</div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Left Column - Tracking -->
+            <div class="space-y-4">
+                <!-- Cursor Tracking -->
+                <div class="glass rounded-xl p-4 glow-blue">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"/>
+                        </svg>
+                        Cursor/Touch Tracking
+                        <span class="ml-auto text-xs text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded-full">Draw here</span>
+                    </h3>
+                    <canvas id="trackingCanvas" class="w-full h-48 rounded-lg bg-black/40 border border-white/10"></canvas>
+                    <div class="grid grid-cols-3 gap-2 mt-3">
+                        <div class="bg-black/30 rounded-lg p-2 text-center">
+                            <div class="text-lg font-bold text-blue-400" id="velocity">0</div>
+                            <div class="text-xs text-gray-500">Velocity px/s</div>
+                        </div>
+                        <div class="bg-black/30 rounded-lg p-2 text-center">
+                            <div class="text-lg font-bold text-green-400" id="smoothness">--</div>
+                            <div class="text-xs text-gray-500">Smoothness</div>
+                        </div>
+                        <div class="bg-black/30 rounded-lg p-2 text-center">
+                            <div class="text-lg font-bold text-purple-400" id="pointsCount">0</div>
+                            <div class="text-xs text-gray-500">Points</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Metrics from ML -->
+                <div class="glass rounded-xl p-4">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        ML Cursor Metrics
+                    </h3>
+                    <div class="grid grid-cols-2 gap-2 text-xs" id="cursorMetrics">
+                        <div class="flex justify-between py-1 border-b border-white/5">
+                            <span class="text-gray-500">Velocity Mean</span>
+                            <span id="metricVelocityMean">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-white/5">
+                            <span class="text-gray-500">Velocity Std</span>
+                            <span id="metricVelocityStd">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-white/5">
+                            <span class="text-gray-500">Directness</span>
+                            <span id="metricDirectness">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-white/5">
+                            <span class="text-gray-500">Curvature</span>
+                            <span id="metricCurvature">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-white/5">
+                            <span class="text-gray-500">Hesitations</span>
+                            <span id="metricHesitations">--</span>
+                        </div>
+                        <div class="flex justify-between py-1 border-b border-white/5">
+                            <span class="text-gray-500">Path Length</span>
+                            <span id="metricPathLength">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle Column - BBA -->
+            <div class="space-y-4">
+                <!-- BBA Ring -->
+                <div class="glass rounded-xl p-4 glow-green">
+                    <h3 class="text-sm font-semibold mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        Behavioral Biometric Analysis
+                        <span class="ml-auto text-xs px-2 py-0.5 rounded-full" id="mlBadge">ML Powered</span>
+                    </h3>
+                    <div class="flex justify-center mb-4">
+                        <div class="relative">
+                            <svg class="w-36 h-36 transform -rotate-90">
+                                <circle cx="72" cy="72" r="64" stroke="rgba(255,255,255,0.1)" stroke-width="10" fill="none"/>
+                                <circle id="bbaRing" cx="72" cy="72" r="64" stroke="#6b7280" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="402" stroke-dashoffset="402" class="score-ring"/>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="text-4xl font-bold" id="bbaScoreMain">--</span>
+                                <span class="text-xs text-gray-400">BBA Score</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Score Breakdown -->
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                    Cursor Score
+                                </span>
+                                <span class="font-medium" id="cursorScore">--</span>
+                            </div>
+                            <div class="h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                <div id="cursorBar" class="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                                    Keystroke Score
+                                </span>
+                                <span class="font-medium" id="keystrokeScore">--</span>
+                            </div>
+                            <div class="h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                <div id="keystrokeBar" class="h-full bg-gradient-to-r from-purple-600 to-purple-400 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400 flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                    Touch Score
+                                </span>
+                                <span class="font-medium" id="touchScore">--</span>
+                            </div>
+                            <div class="h-1.5 bg-black/40 rounded-full overflow-hidden">
+                                <div id="touchBar" class="h-full bg-gradient-to-r from-green-600 to-green-400 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keystroke Input -->
+                <div class="glass rounded-xl p-4">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Keystroke Dynamics
+                    </h3>
+                    <input type="text" id="keystrokeInput" placeholder="Type to analyze your typing pattern..."
+                           class="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition">
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                        <div class="bg-black/30 rounded-lg p-2">
+                            <div class="text-xs text-gray-500">Hold Duration</div>
+                            <div class="text-lg font-bold" id="holdDuration">-- ms</div>
+                        </div>
+                        <div class="bg-black/30 rounded-lg p-2">
+                            <div class="text-xs text-gray-500">Flight Time</div>
+                            <div class="text-lg font-bold" id="flightTime">-- ms</div>
+                        </div>
+                        <div class="bg-black/30 rounded-lg p-2">
+                            <div class="text-xs text-gray-500">Typing Speed</div>
+                            <div class="text-lg font-bold" id="typingSpeed">-- CPM</div>
+                        </div>
+                        <div class="bg-black/30 rounded-lg p-2">
+                            <div class="text-xs text-gray-500">Rhythm Score</div>
+                            <div class="text-lg font-bold" id="rhythmScore">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Cognitive & Anomalies -->
+            <div class="space-y-4">
+                <!-- Cognitive Load -->
+                <div class="glass rounded-xl p-4">
+                    <h3 class="text-sm font-semibold mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                        Cognitive Analysis
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">Task Complexity</span>
+                                <span id="taskComplexity">--</span>
+                            </div>
+                            <div class="h-2 bg-black/40 rounded-full overflow-hidden">
+                                <div id="taskComplexityBar" class="h-full bg-blue-500 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">User Fatigue</span>
+                                <span id="userFatigue">--</span>
+                            </div>
+                            <div class="h-2 bg-black/40 rounded-full overflow-hidden">
+                                <div id="userFatigueBar" class="h-full bg-yellow-500 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">Attention Level</span>
+                                <span id="attentionLevel">--</span>
+                            </div>
+                            <div class="h-2 bg-black/40 rounded-full overflow-hidden">
+                                <div id="attentionLevelBar" class="h-full bg-green-500 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-gray-400">Stress Indicator</span>
+                                <span id="stressIndicator">--</span>
+                            </div>
+                            <div class="h-2 bg-black/40 rounded-full overflow-hidden">
+                                <div id="stressIndicatorBar" class="h-full bg-red-500 rounded-full progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Anomaly Detection -->
+                <div class="glass rounded-xl p-4 glow-red">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        ML Anomaly Detection
+                    </h3>
+                    <div id="anomalyList" class="space-y-2 max-h-40 overflow-y-auto">
+                        <div class="text-gray-500 text-xs text-center py-4">No anomalies detected</div>
+                    </div>
+                </div>
+
+                <!-- Recommendation -->
+                <div class="glass rounded-xl p-4">
+                    <h3 class="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        ML Recommendation
+                    </h3>
+                    <div id="recommendation" class="text-xs bg-gray-500/10 border border-gray-500/30 text-gray-300 rounded-lg p-3">
+                        Collect data by drawing and typing, then click "Analyze" to get ML-powered insights.
+                    </div>
+                </div>
+
+                <!-- Velocity Chart -->
+                <div class="glass rounded-xl p-4">
+                    <h3 class="text-sm font-semibold mb-3">Real-time Velocity</h3>
+                    <canvas id="velocityChart" class="w-full h-24"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ============ CONFIGURATION ============
+        const API_BASE = () => document.getElementById('apiUrl').value;
+
+        // ============ STATE ============
+        const state = {
+            cursorPoints: [],
+            keystrokes: [],
+            lastPos: null,
+            lastTime: 0,
+            isDrawing: false,
+            keyTimes: {},
+            lastKeyUp: 0,
+            apiConnected: false,
+            analysisResult: null
+        };
+
+        // ============ CANVAS SETUP ============
+        const trackingCanvas = document.getElementById('trackingCanvas');
+        const ctx = trackingCanvas.getContext('2d');
+
+        function initCanvas() {
+            trackingCanvas.width = trackingCanvas.offsetWidth;
+            trackingCanvas.height = trackingCanvas.offsetHeight;
+        }
+        window.addEventListener('resize', initCanvas);
+        initCanvas();
+
+        // ============ VELOCITY CHART ============
+        const velocityChart = new Chart(document.getElementById('velocityChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59,130,246,0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true }
+                }
+            }
+        });
+
+        // ============ API CONNECTION TEST ============
+        async function testConnection() {
+            const statusEl = document.getElementById('apiStatus');
+            statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-yellow-500 pulse"></span><span class="text-yellow-400 text-xs font-medium">Testing...</span>`;
+
+            try {
+                const response = await fetch(`${API_BASE()}/health`);
+                const data = await response.json();
+
+                if (data.status === 'ok') {
+                    statusEl.className = 'api-status flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/50';
+                    statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500 pulse"></span><span class="text-green-400 text-xs font-medium">API Connected</span>`;
+                    state.apiConnected = true;
+                    document.getElementById('mlBadge').className = 'ml-auto text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400';
+                    document.getElementById('mlBadge').textContent = 'ML Active';
+                }
+            } catch (e) {
+                statusEl.className = 'api-status flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/50';
+                statusEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-red-500"></span><span class="text-red-400 text-xs font-medium">API Offline</span>`;
+                state.apiConnected = false;
+                document.getElementById('mlBadge').className = 'ml-auto text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400';
+                document.getElementById('mlBadge').textContent = 'ML Offline';
+            }
+        }
+
+        // Test connection on load
+        setTimeout(testConnection, 500);
+
+        // ============ CURSOR TRACKING ============
+        trackingCanvas.addEventListener('mousedown', e => {
+            state.isDrawing = true;
+            state.lastPos = { x: e.offsetX, y: e.offsetY };
+            state.lastTime = Date.now();
+            recordPoint(e.offsetX, e.offsetY);
+        });
+
+        trackingCanvas.addEventListener('mousemove', e => {
+            if (!state.isDrawing) return;
+            const x = e.offsetX, y = e.offsetY;
+
+            ctx.beginPath();
+            ctx.moveTo(state.lastPos.x, state.lastPos.y);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = `hsl(${(state.cursorPoints.length * 2) % 360}, 70%, 60%)`;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            recordPoint(x, y);
+            state.lastPos = { x, y };
+        });
+
+        trackingCanvas.addEventListener('mouseup', () => state.isDrawing = false);
+        trackingCanvas.addEventListener('mouseleave', () => state.isDrawing = false);
+
+        // Touch support
+        trackingCanvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = trackingCanvas.getBoundingClientRect();
+            state.isDrawing = true;
+            state.lastPos = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+            state.lastTime = Date.now();
+            recordPoint(state.lastPos.x, state.lastPos.y);
+        }, { passive: false });
+
+        trackingCanvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (!state.isDrawing) return;
+            const touch = e.touches[0];
+            const rect = trackingCanvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left, y = touch.clientY - rect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(state.lastPos.x, state.lastPos.y);
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = `hsl(${(state.cursorPoints.length * 2) % 360}, 70%, 60%)`;
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            recordPoint(x, y);
+            state.lastPos = { x, y };
+        }, { passive: false });
+
+        trackingCanvas.addEventListener('touchend', () => state.isDrawing = false);
+
+        function recordPoint(x, y) {
+            const now = Date.now();
+            state.cursorPoints.push({ x, y, timestamp: now });
+
+            // Calculate velocity
+            if (state.lastTime && state.lastPos) {
+                const dist = Math.hypot(x - state.lastPos.x, y - state.lastPos.y);
+                const dt = (now - state.lastTime) / 1000;
+                const vel = dt > 0 ? dist / dt : 0;
+
+                // Update chart
+                velocityChart.data.labels.push('');
+                velocityChart.data.datasets[0].data.push(vel);
+                if (velocityChart.data.labels.length > 50) {
+                    velocityChart.data.labels.shift();
+                    velocityChart.data.datasets[0].data.shift();
+                }
+                velocityChart.update('none');
+
+                document.getElementById('velocity').textContent = Math.round(vel);
+            }
+
+            state.lastTime = now;
+            document.getElementById('pointsCount').textContent = state.cursorPoints.length;
+            document.getElementById('topDataPoints').textContent = state.cursorPoints.length + state.keystrokes.length;
+            updateLiveStatus();
+        }
+
+        // ============ KEYSTROKE TRACKING ============
+        const keystrokeInput = document.getElementById('keystrokeInput');
+
+        keystrokeInput.addEventListener('keydown', e => {
+            if (!state.keyTimes[e.key]) {
+                state.keyTimes[e.key] = Date.now();
+            }
+        });
+
+        keystrokeInput.addEventListener('keyup', e => {
+            const now = Date.now();
+            const pressTime = state.keyTimes[e.key];
+
+            if (pressTime) {
+                const releaseTime = now;
+                state.keystrokes.push({
+                    key: e.key,
+                    pressTime: pressTime,
+                    releaseTime: releaseTime
+                });
+
+                const hold = releaseTime - pressTime;
+                document.getElementById('holdDuration').textContent = hold + ' ms';
+
+                if (state.lastKeyUp) {
+                    const flight = pressTime - state.lastKeyUp;
+                    document.getElementById('flightTime').textContent = Math.round(flight) + ' ms';
+                }
+
+                state.lastKeyUp = now;
+                delete state.keyTimes[e.key];
+
+                document.getElementById('topDataPoints').textContent = state.cursorPoints.length + state.keystrokes.length;
+                updateLiveStatus();
+            }
+        });
+
+        // ============ LIVE STATUS ============
+        function updateLiveStatus() {
+            const total = state.cursorPoints.length + state.keystrokes.length;
+            const liveEl = document.getElementById('liveStatus');
+
+            if (total > 0) {
+                liveEl.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 border border-green-500/50';
+                liveEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-green-500 pulse"></span><span class="text-green-400 text-xs font-medium">Recording</span>`;
+            }
+        }
+
+        // ============ ANALYZE WITH ML API ============
+        async function analyzeNow() {
+            if (state.cursorPoints.length < 5 && state.keystrokes.length < 3) {
+                alert('Please draw patterns and/or type some text first!');
+                return;
+            }
+
+            const analyzeBtn = document.querySelector('button[onclick="analyzeNow()"]');
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke-width="4" class="opacity-25"></circle><path class="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Analyzing...';
+
+            try {
+                const response = await fetch(`${API_BASE()}/analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: 'demo_user',
+                        cursor_points: state.cursorPoints,
+                        keystrokes: state.keystrokes,
+                        session_info: {}
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    state.analysisResult = result.data;
+                    updateUIWithResults(result.data);
+                } else {
+                    throw new Error(result.detail || 'Analysis failed');
+                }
+            } catch (e) {
+                console.error('Analysis error:', e);
+                alert(`Analysis failed: ${e.message}\n\nMake sure the ML API is running:\ncd server/ml && python behavior_api.py`);
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Analyze';
+            }
+        }
+
+        // ============ UPDATE UI WITH ML RESULTS ============
+        function updateUIWithResults(data) {
+            // BBA Scores
+            const bba = data.bba;
+            document.getElementById('topBbaScore').textContent = bba.overall_score + '%';
+            document.getElementById('bbaScoreMain').textContent = Math.round(bba.overall_score);
+            document.getElementById('cursorScore').textContent = bba.cursor_score + '%';
+            document.getElementById('keystrokeScore').textContent = bba.keystroke_score + '%';
+            document.getElementById('touchScore').textContent = bba.touch_score + '%';
+
+            document.getElementById('cursorBar').style.width = bba.cursor_score + '%';
+            document.getElementById('keystrokeBar').style.width = bba.keystroke_score + '%';
+            document.getElementById('touchBar').style.width = bba.touch_score + '%';
+
+            // BBA Ring
+            const circumference = 402;
+            const offset = circumference - (bba.overall_score / 100) * circumference;
+            const ring = document.getElementById('bbaRing');
+            ring.style.strokeDashoffset = offset;
+            ring.style.stroke = bba.overall_score >= 80 ? '#22c55e' : bba.overall_score >= 60 ? '#eab308' : bba.overall_score >= 40 ? '#f97316' : '#ef4444';
+
+            // BBA Status
+            const statusEl = document.getElementById('bbaStatus');
+            if (bba.is_match) {
+                statusEl.textContent = 'Verified';
+                statusEl.className = 'text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400';
+            } else {
+                statusEl.textContent = 'Mismatch';
+                statusEl.className = 'text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400';
+            }
+
+            // Risk
+            const risk = data.risk;
+            document.getElementById('topRiskScore').textContent = Math.round(risk.score);
+            document.getElementById('topRiskLevel').textContent = risk.level;
+
+            const riskColors = {
+                'LOW': 'text-green-400',
+                'MEDIUM': 'text-yellow-400',
+                'HIGH': 'text-orange-400',
+                'CRITICAL': 'text-red-400'
+            };
+            document.getElementById('topRiskLevel').className = `text-3xl font-bold ${riskColors[risk.level] || 'text-gray-400'}`;
+
+            // Cursor Metrics
+            const cm = data.cursor_metrics;
+            document.getElementById('metricVelocityMean').textContent = cm.velocity_mean?.toFixed(1) || '--';
+            document.getElementById('metricVelocityStd').textContent = cm.velocity_std?.toFixed(1) || '--';
+            document.getElementById('metricDirectness').textContent = (cm.directness_ratio * 100)?.toFixed(1) + '%' || '--';
+            document.getElementById('metricCurvature').textContent = cm.curvature_mean?.toFixed(3) || '--';
+            document.getElementById('metricHesitations').textContent = cm.hesitation_count || '--';
+            document.getElementById('metricPathLength').textContent = cm.total_distance?.toFixed(0) + ' px' || '--';
+            document.getElementById('smoothness').textContent = cm.smoothness_score?.toFixed(0) + '%' || '--';
+
+            // Keystroke Metrics
+            const km = data.keystroke_metrics;
+            if (km.hold_mean > 0) {
+                document.getElementById('holdDuration').textContent = km.hold_mean.toFixed(0) + ' ms';
+                document.getElementById('flightTime').textContent = km.flight_mean.toFixed(0) + ' ms';
+                document.getElementById('typingSpeed').textContent = km.typing_speed_cpm.toFixed(0) + ' CPM';
+                document.getElementById('rhythmScore').textContent = km.rhythm_score.toFixed(0) + '%';
+            }
+
+            // Cognitive
+            const cog = data.cognitive?.cognitive_load;
+            if (cog) {
+                document.getElementById('taskComplexity').textContent = cog.task_complexity?.toFixed(0) + '%';
+                document.getElementById('userFatigue').textContent = cog.user_fatigue?.toFixed(0) + '%';
+                document.getElementById('attentionLevel').textContent = cog.attention_level?.toFixed(0) + '%';
+                document.getElementById('stressIndicator').textContent = cog.stress_indicator?.toFixed(0) + '%';
+
+                document.getElementById('taskComplexityBar').style.width = cog.task_complexity + '%';
+                document.getElementById('userFatigueBar').style.width = cog.user_fatigue + '%';
+                document.getElementById('attentionLevelBar').style.width = cog.attention_level + '%';
+                document.getElementById('stressIndicatorBar').style.width = cog.stress_indicator + '%';
+            }
+
+            // Anomalies
+            const anomalyList = document.getElementById('anomalyList');
+            const anomalies = data.anomalies || [];
+            document.getElementById('topAnomalies').textContent = anomalies.length;
+
+            if (anomalies.length === 0) {
+                anomalyList.innerHTML = '<div class="text-gray-500 text-xs text-center py-4">No anomalies detected</div>';
+            } else {
+                anomalyList.innerHTML = anomalies.map(a => {
+                    const colors = { high: 'red', medium: 'yellow', low: 'blue' };
+                    const color = colors[a.severity] || 'gray';
+                    return `
+                        <div class="bg-${color}-500/20 border border-${color}-500/30 rounded-lg p-2 text-xs">
+                            <div class="font-medium text-${color}-400">${a.type}</div>
+                            <div class="text-gray-400">${a.description}</div>
+                            <div class="text-gray-500 mt-1">Confidence: ${(a.confidence * 100).toFixed(0)}%</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Recommendation
+            const rec = data.recommendation;
+            const recEl = document.getElementById('recommendation');
+            const recColors = {
+                'PROCEED': 'bg-green-500/20 border-green-500/30 text-green-300',
+                'CAUTION': 'bg-yellow-500/20 border-yellow-500/30 text-yellow-300',
+                'REAUTH': 'bg-orange-500/20 border-orange-500/30 text-orange-300',
+                'BLOCK': 'bg-red-500/20 border-red-500/30 text-red-300'
+            };
+            recEl.className = `text-xs border rounded-lg p-3 ${recColors[rec.action] || 'bg-gray-500/20 border-gray-500/30 text-gray-300'}`;
+            recEl.innerHTML = `<strong>${rec.action}:</strong> ${rec.message}`;
+        }
+
+        // ============ RESET ============
+        function resetAll() {
+            state.cursorPoints = [];
+            state.keystrokes = [];
+            state.lastPos = null;
+            state.lastTime = 0;
+            state.isDrawing = false;
+            state.keyTimes = {};
+            state.lastKeyUp = 0;
+            state.analysisResult = null;
+
+            ctx.clearRect(0, 0, trackingCanvas.width, trackingCanvas.height);
+            velocityChart.data.labels = [];
+            velocityChart.data.datasets[0].data = [];
+            velocityChart.update();
+
+            document.getElementById('keystrokeInput').value = '';
+
+            // Reset all displays
+            document.getElementById('topBbaScore').textContent = '--';
+            document.getElementById('topRiskLevel').textContent = '--';
+            document.getElementById('topRiskLevel').className = 'text-3xl font-bold text-gray-400';
+            document.getElementById('topDataPoints').textContent = '0';
+            document.getElementById('topAnomalies').textContent = '0';
+            document.getElementById('topRiskScore').textContent = '--';
+            document.getElementById('velocity').textContent = '0';
+            document.getElementById('smoothness').textContent = '--';
+            document.getElementById('pointsCount').textContent = '0';
+            document.getElementById('bbaScoreMain').textContent = '--';
+            document.getElementById('bbaRing').style.strokeDashoffset = '402';
+            document.getElementById('bbaRing').style.stroke = '#6b7280';
+            document.getElementById('cursorScore').textContent = '--';
+            document.getElementById('keystrokeScore').textContent = '--';
+            document.getElementById('touchScore').textContent = '--';
+            document.getElementById('cursorBar').style.width = '0%';
+            document.getElementById('keystrokeBar').style.width = '0%';
+            document.getElementById('touchBar').style.width = '0%';
+            document.getElementById('holdDuration').textContent = '-- ms';
+            document.getElementById('flightTime').textContent = '-- ms';
+            document.getElementById('typingSpeed').textContent = '-- CPM';
+            document.getElementById('rhythmScore').textContent = '--';
+            document.getElementById('taskComplexity').textContent = '--';
+            document.getElementById('userFatigue').textContent = '--';
+            document.getElementById('attentionLevel').textContent = '--';
+            document.getElementById('stressIndicator').textContent = '--';
+            document.getElementById('taskComplexityBar').style.width = '0%';
+            document.getElementById('userFatigueBar').style.width = '0%';
+            document.getElementById('attentionLevelBar').style.width = '0%';
+            document.getElementById('stressIndicatorBar').style.width = '0%';
+            document.getElementById('anomalyList').innerHTML = '<div class="text-gray-500 text-xs text-center py-4">No anomalies detected</div>';
+            document.getElementById('recommendation').textContent = 'Collect data by drawing and typing, then click "Analyze" to get ML-powered insights.';
+            document.getElementById('recommendation').className = 'text-xs bg-gray-500/10 border border-gray-500/30 text-gray-300 rounded-lg p-3';
+            document.getElementById('bbaStatus').textContent = 'Waiting for data';
+            document.getElementById('bbaStatus').className = 'text-xs px-2 py-0.5 rounded-full bg-gray-500/20 text-gray-400';
+
+            // Reset cursor metrics
+            ['metricVelocityMean', 'metricVelocityStd', 'metricDirectness', 'metricCurvature', 'metricHesitations', 'metricPathLength'].forEach(id => {
+                document.getElementById(id).textContent = '--';
+            });
+
+            // Reset live status
+            const liveEl = document.getElementById('liveStatus');
+            liveEl.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-500/20 border border-gray-500/50';
+            liveEl.innerHTML = `<span class="w-2 h-2 rounded-full bg-gray-500"></span><span class="text-gray-400 text-xs font-medium">Waiting</span>`;
+        }
+
+        console.log('KAVACH Real-time Behavior Analytics Dashboard - Ready');
+    </script>
+</body>
+</html>

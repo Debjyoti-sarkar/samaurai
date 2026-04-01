@@ -94,6 +94,9 @@ interface NexaSafeProviderProps {
 
 // Helper function to sync data to dashboard
 const syncToDashboard = async (endpoint: string, data: any): Promise<void> => {
+  // Dashboard sync disabled - returning early to prevent 503 errors
+  return;
+  
   const url = `${DASHBOARD_URL}/api/nexasafe/${endpoint}`;
   console.log(`📊 Syncing to dashboard: ${url}`);
   try {

@@ -171,6 +171,11 @@ npm install
 cd backend
 npm install
 cd ..
+
+# Install voice server dependencies
+cd server
+npm install
+cd ..
 ```
 
 #### 2. Configure Backend
@@ -190,6 +195,23 @@ JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters
 
 # ML Services (Optional)
 HUGGING_FACE_TOKEN=your_huggingface_token_here
+```
+
+#### 2.5. Configure Voice Server
+
+Create `server/.env` file:
+
+```env
+# Voice Server Configuration
+PORT=3001
+NODE_ENV=development
+
+# API Configuration
+API_BASE_URL=http://localhost:5000
+
+# Audio Configuration
+AUDIO_SAMPLE_RATE=16000
+AUDIO_CHANNELS=1
 ```
 
 #### 3. Start MongoDB
@@ -213,7 +235,22 @@ npm run dev
 
 Verify at: http://localhost:5000
 
-#### 5. Configure Frontend API
+#### 5. Start Voice Server
+
+```bash
+cd server
+node simple-voice-server.js
+```
+
+Or with auto-restart on file changes:
+```bash
+cd server
+npm run dev
+```
+
+Verify at: http://localhost:3001
+
+#### 6. Configure Frontend API
 
 Edit `services/api.ts`:
 
@@ -233,7 +270,7 @@ EXPO_PUBLIC_OTP_API_BASE_URL=http://192.168.1.10:5000
 
 You can also use `EXPO_PUBLIC_API_BASE_URL`; both support values with or without `/api`.
 
-#### 6. Start Expo App
+#### 7. Start Expo App
 
 ```bash
 npm start
@@ -243,6 +280,110 @@ Then:
 - Press `i` for iOS simulator
 - Press `a` for Android emulator
 - Scan QR code with Expo Go app for physical device
+
+---
+
+## 🎯 Run Complete App (All Services)
+
+### Automated Start (Windows PowerShell)
+
+Create a file called `start-all.ps1`:
+
+```powershell
+# Kill any existing Node processes
+Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force 2>$null
+Start-Sleep 2
+
+# Start MongoDB (if using local MongoDB)
+# Uncomment the line below if MongoDB is not running as a service
+# Start-Process mongod -ArgumentList '--dbpath="C:\data\db"' -WindowStyle Minimized
+
+# Start Backend Server in new window
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd $PSScriptRoot\backend; npm run dev" -WindowStyle Normal
+
+Start-Sleep 3
+
+# Start Voice Server in new window
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd $PSScriptRoot\server; npm run dev" -WindowStyle Normal
+
+Start-Sleep 2
+
+# Start React Native App with Expo
+Write-Host "Starting Expo React Native App..." -ForegroundColor Green
+npm start
+```
+
+Run it:
+```powershell
+.\start-all.ps1
+```
+
+### Manual Start (Terminal-by-Terminal)
+
+**Terminal 1 - MongoDB:**
+```bash
+mongod --dbpath="C:\data\db"
+# Or if using MongoDB service, skip this
+```
+
+**Terminal 2 - Backend Server:**
+```bash
+cd backend
+npm run dev
+# Runs on http://localhost:5000
+```
+
+**Terminal 3 - Voice Server:**
+```bash
+cd server
+npm run dev
+# Runs on http://localhost:3001
+```
+
+**Terminal 4 - React Native App:**
+```bash
+npm start
+# Press 'a' for Android or 'i' for iOS
+```
+
+### Service Integration Points
+
+| Service | Port | Purpose |
+|---------|------|---------|
+| **Backend API** | 5000 | Main business logic, authentication, payments, fraud detection |
+| **Voice Server** | 3001 | Speech-to-text, voice transactions, voice assistant |
+| **MongoDB** | 27017 | Data persistence for users, transactions, analytics |
+| **Expo** | 19000 | React Native app development server |
+
+### Checking Service Status
+
+```bash
+# Check if services are running
+netstat -ano | findstr :5000   # Backend
+netstat -ano | findstr :3001   # Voice Server
+netstat -ano | findstr :27017  # MongoDB
+```
+
+### Troubleshooting Services
+
+**Backend not starting (EADDRINUSE on port 5000):**
+```bash
+# Kill process using port 5000
+netstat -ano | findstr :5000
+taskkill /PID <PID> /F
+```
+
+**Voice Server not starting:**
+```bash
+cd server
+npm install  # Ensure dependencies are installed
+npm run dev
+```
+
+**MongoDB connection issues:**
+- Verify MongoDB is running: `mongod --version`
+- Check connection string in `backend/.env`
+- Ensure port 27017 is not blocked by firewall
 
 ---
 

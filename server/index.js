@@ -117,27 +117,60 @@ app.post("/assistant/transcribe", upload.single("audio"), async (req, res) => {
 
     if (!req.file) return res.status(400).json({ error: "No audio provided" });
 
-    console.log("🎤 Received audio:", req.file.originalname);
+    console.log("🎤 Received audio:", {
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+    });
+
+    // Determine encoding based on file type
+    let encoding = "linear16";
+    if (req.file.mimetype?.includes("x-m4a") || req.file.originalname?.endsWith(".m4a")) {
+      encoding = "aac";
+    } else if (req.file.mimetype?.includes("mpeg")) {
+      encoding = "aac";
+    }
+
+    console.log("🎤 Detected encoding:", encoding);
 
     // Use Deepgram for transcription
+    console.log("🎤 Processing audio with Deepgram (model: nova-2)...");
+    
     const { result, error } = await deepgram.listen.prerecorded.transcribeFile(
       req.file.buffer,
       {
         model: "nova-2",
         language: "en",
         smart_format: true,
+        encoding: encoding,
       },
     );
 
-    if (error) throw error;
+    if (error) {
+      console.error("❌ Deepgram API error:", JSON.stringify(error, null, 2));
+      throw new Error(`Deepgram API Error: ${error?.message || JSON.stringify(error)}`);
+    }
 
     const text =
       result?.results?.channels?.[0]?.alternatives?.[0]?.transcript || "";
+    
+    console.log("✅ Deepgram Response:", {
+      hasResult: !!result,
+      channelsCount: result?.results?.channels?.length,
+      transcriptLength: text?.length,
+      transcript: text.substring(0, 100),
+    });
+    
     console.log("📝 Transcript from Deepgram:", text);
 
     res.json({ text });
   } catch (err) {
-    console.error("❌ STT Error:", err);
+    console.error("❌ STT Error:", err.message);
+    console.error("❌ Error Details:", {
+      message: err?.message,
+      code: err?.code,
+      stack: err?.stack?.split('\n')[0],
+    });
 
     // Graceful fallback
     res.status(200).json({

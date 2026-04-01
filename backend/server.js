@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
 const connectDB = require("./config/db");
 
 const app = express();
@@ -28,7 +27,6 @@ app.use("/api/spam", require("./routes/spamRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/activity", require("./routes/activityRoutes"));
 app.use("/api/user", require("./routes/userRoutes"));
-app.use("/api/intelligence", require("./routes/intelligenceRoutes")); // Intelligence Platform
 
 // KAVACH Shield Fraud Risk Verification Endpoint
 app.post("/api/check-risk", (req, res) => {
@@ -110,27 +108,11 @@ app.post("/api/check-risk", (req, res) => {
   }
 });
 
-// JWT Token Generation Endpoint (for testing)
-app.get("/test-token", (req, res) => {
-  const token = jwt.sign(
-    { userId: "test123", role: "admin", email: "admin@kavach.com" },
-    process.env.JWT_SECRET || "secret",
-    { expiresIn: "24h" }
-  );
-  res.json({ 
-    token,
-    message: "Test JWT token generated successfully",
-    expiresIn: "24 hours",
-    userId: "test123",
-    role: "admin"
-  });
-});
-
 // Health check
 app.get("/", (req, res) => {
   res.json({
-    message: "KAVACH Backend API + Intelligence Platform",
-    version: "2.0.0",
+    message: "KAVACH Backend API",
+    version: "1.0.0",
     status: "running",
     endpoints: {
       auth: "/api/auth",
@@ -141,13 +123,12 @@ app.get("/", (req, res) => {
       emi: "/api/emi",
       qr: "/api/qr",
       offlineOtp: "/api/offline-otp",
-      otp: "/api/otp",
-      aadhaar: "/api/aadhaar",
+      otp: "/api/otp", // Real OTP with Fast2SMS
+      aadhaar: "/api/aadhaar", // Aadhaar Verification
       spam: "/api/spam",
       notifications: "/api/notifications",
       activity: "/api/activity",
       user: "/api/user",
-      intelligence: "/api/intelligence (NEW - Risk, Events, Cases, Graph, Automation)",
     },
   });
 });

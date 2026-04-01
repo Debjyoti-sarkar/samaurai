@@ -1,7 +1,6 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -157,26 +156,16 @@ function DashboardTabs() {
 export default function RootNavigator() {
   const { theme, isDark } = useTheme();
 
-  // 🔥 IMPORTANT: PIN logic
-  const { authStep, hasCompletedOnboarding, needsReauth } = useAuth();
-  const navigation = useNavigation<any>();
-
-  // 🔥 Redirect to PIN screen when needsReauth = true
-  useEffect(() => {
-    if (needsReauth && hasCompletedOnboarding && navigation) {
-      console.log("🔒 Redirecting to Login screen - needsReauth:", needsReauth);
-      // Small delay to ensure navigation is ready
-      setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: "Login" }],
-        });
-      }, 100);
-    }
-  }, [needsReauth, hasCompletedOnboarding, navigation]);
+  // Auth/onboarding routing
+  const { authStep, hasCompletedOnboarding, needsReauth, userData } = useAuth();
 
   // Decide first screen based on onboarding + authStep
   const getInitialRoute = (): keyof RootStackParamList => {
+    // If a user PIN exists, prefer Login even if onboarding flags are stale.
+    if (userData?.pin) {
+      return "Login";
+    }
+
     // If onboarding not completed, show onboarding flow
     if (!hasCompletedOnboarding) {
       switch (authStep) {
@@ -197,9 +186,13 @@ export default function RootNavigator() {
     return "Login";
   };
 
+  const initialRouteName: keyof RootStackParamList =
+    needsReauth && hasCompletedOnboarding ? "Login" : getInitialRoute();
+
   return (
     <Stack.Navigator
-      initialRouteName={getInitialRoute()}
+      key={`root-${hasCompletedOnboarding ? "done" : "onboarding"}-${needsReauth ? "reauth" : "normal"}`}
+      initialRouteName={initialRouteName}
       screenOptions={getCommonScreenOptions({ theme, isDark })}
     >
       {/* Onboarding Screens */}

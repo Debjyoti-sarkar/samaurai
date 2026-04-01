@@ -127,6 +127,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserData(parsedUser);
       } else if (savedUser) {
         setUserData(parsedUser);
+
+        // Recovery path: if user profile includes phone + PIN, treat as onboarded
+        // even when flags are stale/missing so app lands on Login instead of onboarding.
+        if (hasValidUserData) {
+          setHasCompletedOnboarding(true);
+          setAuthStepState("authenticated");
+          setNeedsReauth(true);
+        }
       }
     } catch (e) {
       console.log("AUTH LOAD ERROR:", e);

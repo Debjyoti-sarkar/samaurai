@@ -224,6 +224,13 @@ export default function LoginScreen() {
     setShowLanguageMenu(false);
   };
 
+  const handleForgotPin = useCallback(() => {
+    navigation.navigate("OTPVerification", {
+      phoneNumber: userData?.phoneNumber,
+      purpose: "reset",
+    });
+  }, [navigation, userData?.phoneNumber]);
+
   return (
     <ScreenKeyboardAwareScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.headerRow}>
@@ -333,7 +340,7 @@ export default function LoginScreen() {
             </ThemedText>
           ) : null}
 
-          <Pressable onPress={() => {}} style={styles.forgotButton}>
+          <Pressable onPress={handleForgotPin} style={styles.forgotButton}>
             <ThemedText type="small" style={{ color: KAVACHColors.primary }}>
               {t("forgotPin")}
             </ThemedText>

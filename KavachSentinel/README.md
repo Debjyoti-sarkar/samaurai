@@ -1,49 +1,38 @@
-# KAVACH SENTINEL
+# KAVACH SENTINEL V2
 
-**AI-powered Financial Honeypot for detecting enemy infiltration inside military payment networks.**
+**Advanced Predictive, Deceptive, and Intelligence-Generating Cyber Defense Platform**
 
-## 🎯 Overview
-Kavach Sentinel is a secure military financial network simulation with embedded honeypots. It silently detects when unauthorized entities access honeypot identities, tracks attacker behavior, and displays threat intelligence on a real-time React dashboard using WebSocket alerts.
-
-## 🛠️ Tech Stack
-- **Backend:** Node.js, Express, MySQL, WebSockets, AES-256 (aes-js)
-- **Frontend:** React (Vite), Tailwind CSS, Lucide React
-- **Logic / Data Gen:** Python (Faker, PyMySQL)
+## 🎯 V2 Intelligence Upgrades Overview
+Kavach Sentinel V2 upgrades the static honeypot into an active counter-intelligence weapon. The platform now features:
+- **AI Profiler:** Heuristic/ML engine analyzing attacker speed to determine skill and motive.
+- **Geographic Heatmapping:** Live IP tracing plotted intuitively over an abstract node map.
+- **Dynamic Deception:** Automatically feeds infinitely generated fake data the deeper an attacker penetrates a honeypot session.
+- **Quantum-Resist Shim:** Real data is encapsulated via a theoretical post-quantum wrapper.
+- **Insider Threat Monitoring:** Rates normal users when extracting high volumes of safe data.
+- **Canary Tokens:** Injects mock PDFs containing IP-tracking triggers into leaked data.
+- **Behavioral Biometrics:** Invisible terminal rhythm tracker.
 
 ## 🚀 Setup Instructions
 
-### 1. Database (MySQL)
-1. Ensure MySQL is installed and running (`root` user, no password by default).
-2. Execute the `database/schema.sql` file into your local MySQL instance to create the `kavach_sentinel` database and tables.
+*(Note: Requires Node.js and Python installed)*
 
-### 2. Python Honeypot Generator
-1. Navigate to the `honeypot-generator` directory.
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run the generator: `python generator.py`
-   *(This populates the database with realistic soldier profiles and injects the honeypots).*
+`cd KavachSentinel`
 
-### 3. Backend (Node.js API)
-1. Navigate to the `backend` directory.
-2. Ensure you have the `.env` file containing `DB_USER` and `DB_PASSWORD`.
-3. Install dependencies: `npm install`
-4. Start the server: `npm start`
-   *(API runs on `http://localhost:5000`)*
+### 1. Database (MySQL V2)
+Import `database/schema_v2.sql` to apply the advanced schemas.
 
-### 4. Frontend (React Dashboard)
-1. Navigate to the `frontend` directory.
-2. Install dependencies: `npm install`
-3. Start the dashboard: `npm run dev`
-   *(Runs on `http://localhost:5173`)*
+### 2. Python AI Profiling Modules
+Ensure requirements installed. The backend Node.js automatically spawns Python sub-processes for ML evaluation from the `/ai-engine` folder when an attack occurs.
 
-## 🎬 Demo Mode (Testing the Honeypot)
-1. Open the React Dashboard (`http://localhost:5173`).
-2. On the left side, locate the **Infiltration Simulator** (Demo Panel).
-3. Click "EXTRACT" on any of the loaded personnel records simulating an attacker data dump.
-4. **If a standard record is accessed:** The data is fetched normally without raising an alarm.
-5. **If a HONEYPOT is accessed:** 
-   - A silent encrypted payload is logged and broadcast via WebSockets to the Dashboard.
-   - The map radar visually pulses a threat marker.
-   - Attack tracking details (Simulated IP, Browser Agent, Risk Level, Target) are listed in the **Live Threat Intel** feed.
+### 3. Start Backend & Frontend
+Terminal 1: `cd backend && npm install && npm start`
+Terminal 2: `cd frontend && npm install && npm run dev`
 
-### Security Implementation Note:
-The intrusion alert payload is encrypted from the Node.js backend using AES-256 before being broadcast over WebSockets, ensuring network sniffers cannot read the alerting mechanism in transit or spoof the alerts.
+## 🎬 Advanced Demo Walkthrough
+1. Access the React Dashboard. Notice the **Federated Role** switcher at the top.
+2. In the **Infiltration Simulator**, simulate clicks as either an `"INTERNAL"` Threat or an direct `"ENEMY"` Threat on the HoneyPot targets.
+3. Once an Enemy accesses a target:
+   - *Intrusion Core* passes the metrics to *Python Profiler*.
+   - *Active Counterintel Engine* supplies the attacker with a fake Dossier payload containing a Canary document.
+   - The *Heatmap* triggers and plots the origin.
+4. Watch the terminal logs on the Demo Panel simulate downloading the Canary Document. The Dashboard immediately reacts to the tripped Canary Trace.

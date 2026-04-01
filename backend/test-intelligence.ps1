@@ -1,0 +1,148 @@
+# Intelligence Platform API Test Suite
+
+$token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OWNjMTE0MzE2NDg2Yjg3NjY0YzAwZWQiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzQ5ODE0NDYsImV4cCI6MTc3NTU4NjI0Nn0.zHo-JzQQq2BWEtwZp3SJuM5Vg7GFufpMYzNlbrQ3ro4"
+$baseUrl = "http://localhost:5000/api/intelligence"
+$headers = @{
+    "Authorization" = "Bearer $token"
+    "Content-Type" = "application/json"
+}
+
+Write-Host "=========================================="
+Write-Host "INTELLIGENCE PLATFORM API TEST SUITE"
+Write-Host "=========================================="
+
+$testsPassed = 0
+$testsFailed = 0
+
+# Test 1: Risk Evaluation
+Write-Host ""
+Write-Host "Test 1: Risk Evaluation" -ForegroundColor Yellow
+$riskBody = @{
+    transactionId = "txn-test-001"
+    transaction = @{
+        userId = "69cc114316486b87664c00ed"
+        amount = 50000
+        currency = "INR"
+        deviceId = "device-test-001"
+        timestamp = [datetime]::UtcNow.ToString("o")
+        recipientUPI = "test@upi"
+        recipientName = "Test User"
+        location = @{
+            city = "Mumbai"
+            country = "India"
+        }
+    }
+} | ConvertTo-Json -Depth 10
+
+try {
+    $riskResponse = Invoke-WebRequest -Uri "$baseUrl/risk/evaluate-transaction" -Method POST -Headers $headers -Body $riskBody -ErrorAction Stop
+    $riskData = $riskResponse.Content | ConvertFrom-Json
+    Write-Host "   PASS: Risk Score: $($riskData.data.riskScore)" -ForegroundColor Green
+    $testsPassed++
+} catch {
+    Write-Host "   FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    $testsFailed++
+}
+
+# Test 2: Create Event
+Write-Host ""
+Write-Host "Test 2: Creating Event" -ForegroundColor Yellow
+$randomId = Get-Random -Minimum 100000 -Maximum 999999
+$eventBody = @{
+    eventType = "transaction"
+    userId = "69cc114316486b87664c00ed"
+    deviceId = "device-test-001"
+    description = "Large transaction detected"
+    severity = "high"
+    ipAddress = "192.168.1.100"
+    eventId = "evt_$randomId"
+} | ConvertTo-Json
+
+try {
+    $eventResponse = Invoke-WebRequest -Uri "$baseUrl/events/create" -Method POST -Headers $headers -Body $eventBody -ErrorAction Stop
+    $eventData = $eventResponse.Content | ConvertFrom-Json
+    Write-Host "   PASS: Event: $($eventData.data.eventId)" -ForegroundColor Green
+    $testsPassed++
+} catch {
+    Write-Host "   FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    $testsFailed++
+}
+
+# Test 3: Get User Events
+Write-Host ""
+Write-Host "Test 3: Fetching User Events" -ForegroundColor Yellow
+try {
+    $eventsResponse = Invoke-WebRequest -Uri "$baseUrl/events/user/69cc114316486b87664c00ed" -Method GET -Headers $headers -ErrorAction Stop
+    $eventsData = $eventsResponse.Content | ConvertFrom-Json
+    Write-Host "   PASS: Total events: $($eventsData.data.Count)" -ForegroundColor Green
+    $testsPassed++
+} catch {
+    Write-Host "   FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    $testsFailed++
+}
+
+# Test 4: Create Case
+Write-Host ""
+Write-Host "Test 4: Creating Case" -ForegroundColor Yellow
+$caseBody = @{
+    title = "Suspicious Transaction Alert"
+    description = "High-value transaction from new device"
+    severity = "high"
+    userId = "69cc114316486b87664c00ed"
+    caseType = "fraud_investigation"
+} | ConvertTo-Json
+
+try {
+    $caseResponse = Invoke-WebRequest -Uri "$baseUrl/cases/create" -Method POST -Headers $headers -Body $caseBody -ErrorAction Stop
+    $caseData = $caseResponse.Content | ConvertFrom-Json
+    Write-Host "   PASS: Case: $($caseData.data.caseId)" -ForegroundColor Green
+    $testsPassed++
+} catch {
+    Write-Host "   FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    $testsFailed++
+}
+
+# Test 5: Create Entity Relationship
+Write-Host ""
+Write-Host "Test 5: Creating Entity Relationship" -ForegroundColor Yellow
+$relBody = @{
+    entityA = @{
+        type = "user"
+        id = "69cc114316486b87664c00ed"
+    }
+    entityB = @{
+        type = "device"
+        id = "device-test-001"
+    }
+    relationshipType = "uses"
+    metadata = @{
+        lastUsed = [datetime]::UtcNow.ToString("o")
+        usageCount = 5
+    }
+} | ConvertTo-Json -Depth 10
+
+try {
+    $relResponse = Invoke-WebRequest -Uri "$baseUrl/graph/create-relationship" -Method POST -Headers $headers -Body $relBody -ErrorAction Stop
+    Write-Host "   PASS: Relationship created" -ForegroundColor Green
+    $testsPassed++
+} catch {
+    Write-Host "   FAIL: $($_.Exception.Message)" -ForegroundColor Red
+    $testsFailed++
+}
+
+# Summary
+Write-Host ""
+Write-Host "=========================================="
+Write-Host "TEST RESULTS"
+Write-Host "=========================================="
+Write-Host "Passed: $testsPassed"
+Write-Host "Failed: $testsFailed"
+
+if ($testsFailed -eq 0) {
+    Write-Host ""
+    Write-Host "ALL TESTS PASSED!"
+    Write-Host "System Status: All Intelligence Engines Operational"
+} else {
+    Write-Host ""
+    Write-Host "Some tests failed. Check output above."
+}

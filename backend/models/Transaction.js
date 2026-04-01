@@ -69,6 +69,82 @@ const TransactionSchema = new mongoose.Schema({
   balanceAfter: {
     type: Number,
   },
+
+  // Risk & Intelligence fields
+  riskAssessmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "RiskAssessment",
+    sparse: true,
+  },
+  riskLevel: {
+    type: String,
+    enum: ["low", "medium", "high", "critical"],
+    default: "low",
+  },
+
+  // Device & Location context
+  deviceId: String,
+  location: {
+    latitude: Number,
+    longitude: Number,
+    country: String,
+    city: String,
+    ipAddress: String,
+  },
+
+  // Case management
+  caseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Case",
+    sparse: true,
+  },
+
+  // Event correlation
+  eventId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Event",
+    sparse: true,
+  },
+
+  // Recipient risk tracking
+  recipientUser: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    sparse: true,
+  },
+  recipientRiskScore: Number,
+
+  // Automation actions
+  automationActionsTriggered: [
+    {
+      ruleId: mongoose.Schema.Types.ObjectId,
+      action: String,
+      timestamp: Date,
+    },
+  ],
+
+  // Verification requirements
+  verificationRequired: {
+    type: Boolean,
+    default: false,
+  },
+  verificationMethods: [String],
+  verificationStatus: String,
+
+  // Metadata for analysis
+  metadata: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+  },
+
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
+
+TransactionSchema.index({ userId: 1, timestamp: -1 });
+TransactionSchema.index({ riskLevel: 1, status: 1 });
+TransactionSchema.index({ caseId: 1 });
 
 module.exports = mongoose.model("Transaction", TransactionSchema);

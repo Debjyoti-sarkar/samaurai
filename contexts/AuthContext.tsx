@@ -79,17 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    // TEMPORARY: Reset onboarding to test Phone Verification
-    // Remove this block after testing!
-    const resetAndLoad = async () => {
-      console.log("🔄 RESETTING ONBOARDING FOR TESTING...");
-      await AsyncStorage.removeItem(AUTH_KEY);
-      await AsyncStorage.removeItem(USER_KEY);
-      await AsyncStorage.removeItem(ONBOARDING_KEY);
-      console.log("✅ Onboarding reset complete!");
-      loadState();
-    };
-    resetAndLoad();
+    loadState();
   }, []);
 
   const loadState = async () => {
@@ -98,15 +88,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const savedUser = await AsyncStorage.getItem(USER_KEY);
       const savedOnboarding = await AsyncStorage.getItem(ONBOARDING_KEY);
 
-      if (savedOnboarding === "true") {
+      const parsedUser = savedUser ? (JSON.parse(savedUser) as UserData) : null;
+      const hasPhone = !!parsedUser?.phoneNumber;
+      const hasPin = !!parsedUser?.pin;
+      const hasValidUserData = hasPhone && hasPin;
+
+      const onboardingComplete = savedOnboarding === "true";
+      const isAuthenticated = savedAuth === "authenticated";
+
+      if (onboardingComplete && isAuthenticated && hasValidUserData) {
         setHasCompletedOnboarding(true);
-
-        if (savedUser) setUserData(JSON.parse(savedUser));
-
-        if (savedAuth === "authenticated") {
-          setAuthStepState("authenticated");
-          setNeedsReauth(true); // ask PIN because user already registered
+        setAuthStepState("authenticated");
+        setNeedsReauth(true);
+        setUserData(parsedUser);
+      } else if (onboardingComplete && !isAuthenticated) {
+        if (hasValidUserData) {
+          setHasCompletedOnboarding(true);
+          setAuthStepState("language_selection");
+          setUserData(parsedUser);
+        } else {
+          await AsyncStorage.multiRemove([AUTH_KEY, USER_KEY, ONBOARDING_KEY]);
+          setHasCompletedOnboarding(false);
+          setAuthStepState("language_selection");
         }
+      } else if (isAuthenticated && !onboardingComplete && hasValidUserData) {
+        setHasCompletedOnboarding(true);
+        setAuthStepState("authenticated");
+        setNeedsReauth(true);
+        setUserData(parsedUser);
+      } else if (savedUser) {
+        setUserData(parsedUser);
       }
     } catch (e) {
       console.log("AUTH LOAD ERROR:", e);

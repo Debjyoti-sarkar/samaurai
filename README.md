@@ -225,6 +225,14 @@ export const API_URL = __DEV__
 
 **For Android Emulator:** Use `http://10.0.2.2:5000/api`
 
+For OTP service, you can set Expo env vars in a root `.env` file:
+
+```env
+EXPO_PUBLIC_OTP_API_BASE_URL=http://192.168.1.10:5000
+```
+
+You can also use `EXPO_PUBLIC_API_BASE_URL`; both support values with or without `/api`.
+
 #### 6. Start Expo App
 
 ```bash

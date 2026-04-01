@@ -30,7 +30,7 @@ const getConfig = () => ({
 // Check if credentials are configured
 const isConfigured = () => {
   const config = getConfig();
-  return config.apiKey && config.apiSecret;
+  return Boolean(config.apiKey && config.apiSecret);
 };
 
 // In-memory token cache

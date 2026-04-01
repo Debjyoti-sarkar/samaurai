@@ -1,16 +1,51 @@
 /**
  * Real OTP Service - Frontend
- * Handles real OTP sending and verification using backend Twilio integration
+ * Handles real OTP sending and verification using backend OTP integration
  */
 
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Base URL for your backend API
-// Update this with your actual backend URL
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:5000/api' 
-  : 'https://your-production-api.com/api';
+const normalizeApiBaseUrl = (url: string): string => {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
+const resolveApiBaseUrl = (): string => {
+  const envBaseUrl =
+    process.env.EXPO_PUBLIC_OTP_API_BASE_URL ||
+    process.env.EXPO_PUBLIC_API_BASE_URL;
+
+  if (envBaseUrl) {
+    return normalizeApiBaseUrl(envBaseUrl);
+  }
+
+  const fallbackBaseUrl = __DEV__
+    ? 'http://localhost:5000'
+    : 'https://your-production-api.com';
+
+  return normalizeApiBaseUrl(fallbackBaseUrl);
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+const getCandidateApiBaseUrls = (): string[] => {
+  const envOtpBase = process.env.EXPO_PUBLIC_OTP_API_BASE_URL;
+  const envApiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+  const candidates = [
+    envOtpBase,
+    envApiBase,
+    __DEV__ ? 'http://10.0.2.2:5000' : undefined,
+    __DEV__ ? 'http://localhost:5000' : undefined,
+    __DEV__ ? 'http://127.0.0.1:5000' : undefined,
+    __DEV__ ? undefined : 'https://your-production-api.com',
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => normalizeApiBaseUrl(value));
+
+  return [...new Set(candidates)];
+};
 
 export interface OTPResponse {
   success: boolean;
@@ -28,6 +63,36 @@ class RealOTPService {
     this.baseURL = baseURL;
   }
 
+  private async postWithFallback(endpoint: '/otp/send' | '/otp/verify', payload: Record<string, string>) {
+    const candidateBaseUrls = getCandidateApiBaseUrls();
+    const attemptedUrls: string[] = [];
+    let lastError: any;
+
+    const prioritizedBaseUrls = [this.baseURL, ...candidateBaseUrls].filter(
+      (url, index, array) => array.indexOf(url) === index
+    );
+
+    for (const baseUrl of prioritizedBaseUrls) {
+      const url = `${baseUrl}${endpoint}`;
+      attemptedUrls.push(url);
+      try {
+        const response = await axios.post(url, payload, { timeout: 15000 });
+        this.baseURL = baseUrl;
+        return response.data;
+      } catch (error: any) {
+        lastError = error;
+        if (error?.response) {
+          throw error;
+        }
+      }
+    }
+
+    const message = `Unable to connect OTP server. Tried: ${attemptedUrls.join(' | ')}`;
+    const finalError = new Error(message) as Error & { originalError?: any };
+    finalError.originalError = lastError;
+    throw finalError;
+  }
+
   /**
    * Send OTP to a phone number
    * @param phoneNumber - Phone number with or without country code
@@ -35,15 +100,13 @@ class RealOTPService {
    */
   async sendOTP(phoneNumber: string): Promise<OTPResponse> {
     try {
-      // Format phone number
       let formattedPhone = phoneNumber.trim();
-      
-      // If number doesn't start with +, add +91 for India
+
       if (!formattedPhone.startsWith('+')) {
         formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
       }
 
-      const response = await axios.post(`${this.baseURL}/otp/send`, {
+      const response = await this.postWithFallback('/otp/send', {
         phoneNumber: formattedPhone,
       });
 
@@ -51,18 +114,18 @@ class RealOTPService {
       await AsyncStorage.setItem('otp_phone_number', formattedPhone);
       await AsyncStorage.setItem('otp_sent_time', Date.now().toString());
 
-      return response.data;
+      return response;
     } catch (error: any) {
       console.error('Error sending OTP:', error);
-      
+
       if (error.response) {
         return error.response.data;
       }
-      
+
       return {
         success: false,
-        message: 'Failed to send OTP. Please check your network connection.',
-        error: error.message,
+        message: 'Failed to send OTP. Backend may be unreachable. Start backend and use a reachable API URL.',
+        error: error.message || 'Network Error',
       };
     }
   }
@@ -75,36 +138,34 @@ class RealOTPService {
    */
   async verifyOTP(phoneNumber: string, code: string): Promise<OTPResponse> {
     try {
-      // Format phone number
       let formattedPhone = phoneNumber.trim();
-      
+
       if (!formattedPhone.startsWith('+')) {
         formattedPhone = '+91' + formattedPhone.replace(/^0+/, '');
       }
 
-      const response = await axios.post(`${this.baseURL}/otp/verify`, {
+      const response = await this.postWithFallback('/otp/verify', {
         phoneNumber: formattedPhone,
         code: code.trim(),
       });
 
-      // Clear stored data if verification successful
-      if (response.data.success) {
+      if (response.success) {
         await AsyncStorage.removeItem('otp_phone_number');
         await AsyncStorage.removeItem('otp_sent_time');
       }
 
-      return response.data;
+      return response;
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      
+
       if (error.response) {
         return error.response.data;
       }
-      
+
       return {
         success: false,
-        message: 'Failed to verify OTP. Please try again.',
-        error: error.message,
+        message: 'Failed to verify OTP. Backend may be unreachable. Start backend and use a reachable API URL.',
+        error: error.message || 'Network Error',
       };
     }
   }

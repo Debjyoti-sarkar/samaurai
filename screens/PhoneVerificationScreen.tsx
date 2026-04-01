@@ -17,10 +17,13 @@ import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiService } from "@/services/apiService";
 import { Spacing, BorderRadius, KAVACHColors, Shadows } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootNavigator";
+import { realOTPService } from "@/services/realOtpService";
 
+type OTPMode = "offline" | "online";
+const OFFLINE_DUMMY_OTP = "123456";
+const RESEND_WAIT_SECONDS = 30;
 export default function PhoneVerificationScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -30,6 +33,7 @@ export default function PhoneVerificationScreen() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [otpMode, setOtpMode] = useState<OTPMode>("offline");
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
 
@@ -46,19 +50,32 @@ export default function PhoneVerificationScreen() {
       return;
     }
 
+    if (otpMode === "offline") {
+      setLoading(true);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      setStep("otp");
+      setResendTimer(RESEND_WAIT_SECONDS);
+      Alert.alert(
+        "Offline OTP Mode",
+        `Use dummy OTP: ${OFFLINE_DUMMY_OTP}`,
+        [{ text: "OK" }]
+      );
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       console.log("🚀 Sending OTP to:", phone);
 
-      const result = await apiService.sendOTP(phone);
+      const result = await realOTPService.sendOTP(phone);
 
       if (result.success) {
         setStep("otp");
-        setResendTimer(60);
+        setResendTimer(RESEND_WAIT_SECONDS);
 
         Alert.alert(
           "OTP Sent!",
-          `A 6-digit verification code has been sent to +91 ${phone}. Please check your SMS.`,
+          `A 6-digit verification code has been sent to +91 ${phone}. If you don't receive it quickly, use Resend OTP after ${RESEND_WAIT_SECONDS}s.`,
           [{ text: "OK" }]
         );
       } else {
@@ -80,13 +97,27 @@ export default function PhoneVerificationScreen() {
 
     setLoading(true);
 
+    if (otpMode === "offline") {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      if (otp !== OFFLINE_DUMMY_OTP) {
+        Alert.alert("Invalid OTP", `Please enter the dummy OTP: ${OFFLINE_DUMMY_OTP}`);
+        setLoading(false);
+        return;
+      }
+      await setPhoneNumber(phone);
+      setAuthStep("bank_linking");
+      navigation.navigate("BankLinking");
+      setLoading(false);
+      return;
+    }
+
     try {
       console.log("🔍 Verifying OTP...");
 
-      const result = await apiService.verifyOTP(phone, otp);
+      const result = await realOTPService.verifyOTP(phone, otp);
 
       if (result.success) {
-        console.log("✅ Phone verified successfully");
+        console.log("✅ Phone verified");
 
         await setPhoneNumber(phone);
         setAuthStep("bank_linking");
@@ -103,10 +134,29 @@ export default function PhoneVerificationScreen() {
     }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (resendTimer > 0) return;
     setOtp("");
-    handleSendOtp();
+
+    if (otpMode === "offline") {
+      handleSendOtp();
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await realOTPService.resendOTP(phone);
+      if (result.success) {
+        setResendTimer(RESEND_WAIT_SECONDS);
+        Alert.alert("OTP Sent!", `A new OTP was sent to +91 ${phone}.`);
+      } else {
+        Alert.alert("Error", result.message || "Failed to resend OTP");
+      }
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to resend OTP");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBack = () => {
@@ -141,11 +191,56 @@ export default function PhoneVerificationScreen() {
           : `Enter the 6-digit code sent to +91 ${phone}`}
       </ThemedText>
 
-      {/* Real SMS indicator */}
-      <View style={[styles.smsBanner, { backgroundColor: KAVACHColors.success + "20" }]}>
-        <Feather name="check-circle" size={16} color={KAVACHColors.success} />
-        <ThemedText type="caption" style={{ color: KAVACHColors.success, marginLeft: 8 }}>
-          Real SMS OTP will be sent to your phone
+      <View style={[styles.modeToggleContainer, { borderColor: theme.border, backgroundColor: theme.backgroundSecondary }]}>
+        <Pressable
+          onPress={() => setOtpMode("offline")}
+          style={[
+            styles.modeToggleButton,
+            { backgroundColor: otpMode === "offline" ? KAVACHColors.primary : "transparent" }
+          ]}
+        >
+          <ThemedText
+            type="small"
+            style={{ color: otpMode === "offline" ? "#FFFFFF" : theme.text, fontWeight: "600" }}
+          >
+            Offline OTP
+          </ThemedText>
+        </Pressable>
+
+        <Pressable
+          onPress={() => setOtpMode("online")}
+          style={[
+            styles.modeToggleButton,
+            { backgroundColor: otpMode === "online" ? KAVACHColors.primary : "transparent" }
+          ]}
+        >
+          <ThemedText
+            type="small"
+            style={{ color: otpMode === "online" ? "#FFFFFF" : theme.text, fontWeight: "600" }}
+          >
+            Online OTP
+          </ThemedText>
+        </Pressable>
+      </View>
+
+      <View
+        style={[
+          styles.smsBanner,
+          { backgroundColor: otpMode === "online" ? KAVACHColors.success + "20" : KAVACHColors.warning + "20" }
+        ]}
+      >
+        <Feather
+          name={otpMode === "online" ? "check-circle" : "info"}
+          size={16}
+          color={otpMode === "online" ? KAVACHColors.success : KAVACHColors.warning}
+        />
+        <ThemedText
+          type="caption"
+          style={{ color: otpMode === "online" ? KAVACHColors.success : KAVACHColors.warning, marginLeft: 8 }}
+        >
+          {otpMode === "online"
+            ? "Real SMS OTP will be sent to your phone"
+            : `Offline mode active. Use dummy OTP: ${OFFLINE_DUMMY_OTP}`}
         </ThemedText>
       </View>
 
@@ -174,7 +269,6 @@ export default function PhoneVerificationScreen() {
           >
             {loading ? <ActivityIndicator color="#FFFFFF" /> : "Send OTP"}
           </Button>
-
         </View>
       ) : (
         <View style={styles.inputSection}>
@@ -259,6 +353,20 @@ const styles = StyleSheet.create({
   },
   title: { textAlign: "center", marginBottom: Spacing.sm },
   subtitle: { textAlign: "center", marginBottom: Spacing.lg },
+  modeToggleContainer: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: BorderRadius.md,
+    padding: 4,
+    marginBottom: Spacing.lg
+  },
+  modeToggleButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm
+  },
   smsBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -287,10 +395,6 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   button: { marginBottom: Spacing.lg },
-  recaptchaNotice: {
-    marginTop: Spacing.md,
-    alignItems: "center"
-  },
   otpSentBox: {
     flexDirection: "row",
     alignItems: "center",

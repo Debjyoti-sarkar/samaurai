@@ -36,6 +36,12 @@ MONGO_URI=mongodb://localhost:27017/kavach
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 NODE_ENV=development
 HUGGING_FACE_TOKEN=your_optional_huggingface_token
+FAST2SMS_API_KEY=your_fast2sms_api_key
+FAST2SMS_ROUTE=q
+FAST2SMS_SENDER_ID=
+OTP_LENGTH=6
+OTP_EXPIRY_SECONDS=300
+OTP_SMS_TEMPLATE=Your KAVACH OTP is {OTP}. Valid for {EXPIRY_MIN} minutes. Do not share it with anyone.
 ```
 
 4. Start MongoDB (ensure MongoDB is installed and running)

@@ -35,7 +35,8 @@ dotenv.config({ path: join(__dirname, ".env") });
 // --------------------------------------
 // Deepgram STT initialization (FREE TIER)
 // --------------------------------------
-const deepgram = createClient(process.env.DEEPGRAM_API_KEY || "");
+const deepgramApiKey = process.env.DEEPGRAM_API_KEY || "";
+const deepgram = deepgramApiKey ? createClient(deepgramApiKey) : null;
 
 // --------------------------------------
 // Connect MongoDB (optional for behavior)
@@ -106,6 +107,14 @@ app.use("/api/face", faceRouter);
 // --------------------------------------
 app.post("/assistant/transcribe", upload.single("audio"), async (req, res) => {
   try {
+    if (!deepgram) {
+      return res.status(503).json({
+        text: "",
+        error: "stt_unavailable",
+        details: "DEEPGRAM_API_KEY is not configured",
+      });
+    }
+
     if (!req.file) return res.status(400).json({ error: "No audio provided" });
 
     console.log("🎤 Received audio:", req.file.originalname);

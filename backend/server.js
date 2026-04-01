@@ -21,7 +21,7 @@ app.use("/api/loans", require("./routes/loanRoutes"));
 app.use("/api/emi", require("./routes/emiRoutes"));
 app.use("/api/qr", require("./routes/qrRoutes"));
 app.use("/api/offline-otp", require("./routes/offlineOtpRoutes"));
-app.use("/api/otp", require("./routes/otpRoutes")); // Real OTP with Twilio
+app.use("/api/otp", require("./routes/otpRoutes")); // Real OTP with Fast2SMS
 app.use("/api/aadhaar", require("./routes/aadhaarRoutes")); // Aadhaar Verification
 app.use("/api/spam", require("./routes/spamRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
@@ -123,7 +123,7 @@ app.get("/", (req, res) => {
       emi: "/api/emi",
       qr: "/api/qr",
       offlineOtp: "/api/offline-otp",
-      otp: "/api/otp", // Real OTP with Twilio
+      otp: "/api/otp", // Real OTP with Fast2SMS
       aadhaar: "/api/aadhaar", // Aadhaar Verification
       spam: "/api/spam",
       notifications: "/api/notifications",

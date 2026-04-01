@@ -7,6 +7,8 @@ const axios = require('axios');
 
 const getAuthKey = () => process.env.MSG91_AUTH_KEY;
 const getTemplateId = () => process.env.MSG91_TEMPLATE_ID;
+const getOtpExpiry = () => Number(process.env.MSG91_OTP_EXPIRY || 5);
+const getOtpLength = () => Number(process.env.MSG91_OTP_LENGTH || 6);
 
 const formatMobile = (phoneNumber) => {
   // MSG91 requires mobile number with country code
@@ -16,6 +18,33 @@ const formatMobile = (phoneNumber) => {
     mobile = '91' + mobile; // Add India country code if only 10 digits
   }
   return mobile;
+};
+
+const buildSendOtpUrl = (mobile, authKey) => {
+  const params = new URLSearchParams({
+    mobile,
+    authkey: authKey,
+    otp_expiry: String(getOtpExpiry()),
+    otp_length: String(getOtpLength()),
+    realTimeResponse: '1',
+  });
+
+  const templateId = getTemplateId();
+  if (templateId) {
+    params.set('template_id', templateId);
+  }
+
+  return `https://control.msg91.com/api/v5/otp?${params.toString()}`;
+};
+
+const sendOtpRequest = async (url) => {
+  return axios.post(url, {}, {
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    timeout: 10000
+  });
 };
 
 /**
@@ -32,20 +61,23 @@ async function sendOTP(phoneNumber) {
     }
 
     const mobile = formatMobile(phoneNumber);
-    const url = `https://control.msg91.com/api/v5/otp?mobile=${mobile}&authkey=${authKey}`;
+    const url = buildSendOtpUrl(mobile, authKey);
 
     console.log('[MSG91] Sending OTP Request:');
     console.log('  Phone:', phoneNumber);
     console.log('  Formatted Mobile:', mobile);
     console.log('  Auth Key (first 10 chars):', authKey ? authKey.substring(0, 10) + '...' : 'MISSING');
+    if (!getTemplateId()) {
+      console.warn('[MSG91] MSG91_TEMPLATE_ID not set. Delivery may be delayed/blocked on some routes.');
+    }
 
-    const response = await axios.post(url, {}, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      timeout: 10000
-    });
+    let response;
+    try {
+      response = await sendOtpRequest(url);
+    } catch (firstError) {
+      console.warn('[MSG91] First OTP attempt failed, retrying once...');
+      response = await sendOtpRequest(url);
+    }
 
     console.log('[MSG91] Response:', JSON.stringify(response.data, null, 2));
 
@@ -82,7 +114,12 @@ async function verifyOTP(phoneNumber, code) {
     }
 
     const mobile = formatMobile(phoneNumber);
-    const url = `https://control.msg91.com/api/v5/otp/verify?otp=${code}&authkey=${authKey}&mobile=${mobile}`;
+    const verifyParams = new URLSearchParams({
+      otp: code,
+      authkey: authKey,
+      mobile,
+    });
+    const url = `https://control.msg91.com/api/v5/otp/verify?${verifyParams.toString()}`;
 
     console.log('[MSG91] Verifying OTP Request:');
     console.log('  Phone:', phoneNumber);

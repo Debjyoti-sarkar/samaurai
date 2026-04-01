@@ -1,11 +1,11 @@
 /**
  * OTP Routes
- * Routes for sending and verifying OTP using MSG91
+ * Routes for sending and verifying OTP using configurable provider
  */
 
 const express = require('express');
 const router = express.Router();
-const { sendOTP, verifyOTP } = require('../services/msg91OtpService');
+const { sendOTP, verifyOTP } = require('../services/otpService');
 
 /**
  * @route   POST /api/otp/send
@@ -32,7 +32,7 @@ router.post('/send', async (req, res) => {
     if (result.success) {
       res.json(result);
     } else {
-      res.status(400).json(result);
+      res.status(result.providerStatus || 400).json(result);
     }
   } catch (error) {
     console.error('Send OTP error:', error);
@@ -109,7 +109,7 @@ router.post('/resend', async (req, res) => {
         message: 'OTP resent successfully',
       });
     } else {
-      res.status(400).json(result);
+      res.status(result.providerStatus || 400).json(result);
     }
   } catch (error) {
     console.error('Resend OTP error:', error);

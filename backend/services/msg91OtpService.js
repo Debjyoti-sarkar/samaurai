@@ -9,11 +9,11 @@ const getAuthKey = () => process.env.MSG91_AUTH_KEY;
 const getTemplateId = () => process.env.MSG91_TEMPLATE_ID;
 
 const formatMobile = (phoneNumber) => {
-  // MSG91 requires mobile number with country code, but usually without the '+' sign
-  // e.g., 919876543210
+  // MSG91 requires mobile number with country code
+  // e.g., 919876543210 (without + sign)
   let mobile = phoneNumber.replace(/[^0-9]/g, '');
   if (mobile.length === 10) {
-    mobile = '91' + mobile; // Default to India if no country code provided
+    mobile = '91' + mobile; // Add India country code if only 10 digits
   }
   return mobile;
 };
@@ -26,31 +26,43 @@ const formatMobile = (phoneNumber) => {
 async function sendOTP(phoneNumber) {
   try {
     const authKey = getAuthKey();
-    const templateId = getTemplateId();
     
     if (!authKey || authKey === 'YOUR_AUTH_KEY_HERE') {
       throw new Error('MSG91_AUTH_KEY is missing or invalid in .env!');
     }
 
     const mobile = formatMobile(phoneNumber);
-    const url = `https://control.msg91.com/api/v5/otp?template_id=${templateId}&mobile=${mobile}&authkey=${authKey}`;
+    const url = `https://control.msg91.com/api/v5/otp?mobile=${mobile}&authkey=${authKey}`;
+
+    console.log('[MSG91] Sending OTP Request:');
+    console.log('  Phone:', phoneNumber);
+    console.log('  Formatted Mobile:', mobile);
+    console.log('  Auth Key (first 10 chars):', authKey ? authKey.substring(0, 10) + '...' : 'MISSING');
 
     const response = await axios.post(url, {}, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      }
+      },
+      timeout: 10000
     });
 
+    console.log('[MSG91] Response:', JSON.stringify(response.data, null, 2));
+
     if (response.data.type === 'success') {
-      console.log('MSG91 OTP sent successfully to', mobile);
+      console.log('✅ MSG91 OTP sent successfully to', mobile);
       return { success: true, to: phoneNumber, message: 'OTP sent successfully' };
     } else {
+      console.log('❌ MSG91 returned non-success status:', response.data.type);
       throw new Error(response.data.message || 'Failed to send OTP');
     }
 
   } catch (error) {
-    console.error('Error sending MSG91 OTP:', error.message);
+    console.error('❌ Error sending MSG91 OTP:', error.message);
+    if (error.response) {
+      console.error('   Response Status:', error.response.status);
+      console.error('   Response Data:', JSON.stringify(error.response.data, null, 2));
+    }
     return { success: false, error: error.message, message: 'Failed to send OTP' };
   }
 }
@@ -72,19 +84,31 @@ async function verifyOTP(phoneNumber, code) {
     const mobile = formatMobile(phoneNumber);
     const url = `https://control.msg91.com/api/v5/otp/verify?otp=${code}&authkey=${authKey}&mobile=${mobile}`;
 
+    console.log('[MSG91] Verifying OTP Request:');
+    console.log('  Phone:', phoneNumber);
+    console.log('  Formatted Mobile:', mobile);
+    console.log('  Code:', code);
+
     const response = await axios.get(url, {
       headers: { 'Accept': 'application/json' }
     });
 
+    console.log('[MSG91] Verify Response:', JSON.stringify(response.data, null, 2));
+
     if (response.data.type === 'success' || response.data.message === 'OTP verified success') {
-      console.log('MSG91 OTP verification result: approved');
+      console.log('✅ MSG91 OTP verification result: approved');
       return { success: true, valid: true, to: phoneNumber, message: 'OTP verified successfully' };
     } else {
+      console.log('❌ MSG91 verification returned non-success status:', response.data.type);
       return { success: false, valid: false, to: phoneNumber, message: 'Invalid or expired OTP' };
     }
 
   } catch (error) {
-    console.error('Error verifying MSG91 OTP:', error.message);
+    console.error('❌ Error verifying MSG91 OTP:', error.message);
+    if (error.response) {
+      console.error('   Response Status:', error.response.status);
+      console.error('   Response Data:', JSON.stringify(error.response.data, null, 2));
+    }
     // If msg91 returns 400 for wrong OTP or expiry
     if (error.response && error.response.data && error.response.data.type === 'error') {
        return { success: false, message: error.response.data.message || 'Invalid OTP' };

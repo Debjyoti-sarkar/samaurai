@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import OTPAutoFill from '../components/OTPAutoFill';
-import { OTPWidget } from '@msg91comm/sendotp-react-native';
 import { useOTPDetection } from '../hooks/useOTPDetection';
 import { smsMonitor } from '../services/smsMonitor';
 import SMSFraudAlert from '../components/SMSFraudAlert';
@@ -57,19 +56,6 @@ const OTPVerificationScreen: React.FC = () => {
 
   const otpInputRef = useRef<string>('');
 
-  // MSG91 Widget configuration setup
-  const widgetId = '366275687750353332343437';
-  const authToken = process.env.EXPO_PUBLIC_MSG91_AUTH_TOKEN || '495595A0sG4XmEvW69c98f3aP1';
-  // Note: Place the real authToken inside your root .env file as EXPO_PUBLIC_MSG91_AUTH_TOKEN.
-
-  useEffect(() => {
-    try {
-      OTPWidget.initializeWidget(widgetId, authToken); 
-    } catch (err) {
-      console.log('MSG91 OTPWidget init failed:', err);
-    }
-  }, []);
-
   // ===== SEND REAL OTP =====
   useEffect(() => {
     sendRealOTP();
@@ -79,26 +65,18 @@ const OTPVerificationScreen: React.FC = () => {
     try {
       // Extract 10 digits without country code or + padding if needed or send directly 
       const rawNumber = phoneNumber.replace(/[^0-9]/g, '');
-      const validIdentifier = rawNumber.length === 10 ? `91${rawNumber}` : rawNumber;
+      const validIdentifier = rawNumber.length >= 10 ? rawNumber.slice(-10) : rawNumber;
+      const response = await apiService.sendOTP(validIdentifier);
 
-      const data = {
-        identifier: validIdentifier
-      };
-
-      // Trigger the official MSG91 OTP Widget!
-      const response = await OTPWidget.sendOTP(data);
-      console.log('MSG91 OTPWidget response:', response);
-
-      if (response && response.type === 'success') {
+      if (response && response.success) {
         setOtpSentPhone(validIdentifier);
         Alert.alert('OTP Sent', `OTP safely generated & sent to ${validIdentifier}`);
       } else {
-        // Fallback or error catch
-        console.warn('Widget response non-success:', response);
+        console.warn('OTP send response non-success:', response);
       }
     } catch (error: any) {
-      console.error('Widget send error:', error);
-      Alert.alert('Error', error.message || 'Failed to send OTP using widget');
+      console.error('OTP send error:', error);
+      Alert.alert('Error', error.message || 'Failed to send OTP');
     }
   };
 

@@ -9,21 +9,27 @@
     "nexasafe": "node nexasafe-server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["banking", "fraud-detection", "ml", "payment"],
+  "keywords": [
+    "banking",
+    "fraud-detection",
+    "ml",
+    "payment"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^8.0.3",
+    "axios": "^1.6.2",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
+    "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3",
-    "axios": "^1.6.2",
+    "mongoose": "^8.0.3",
+    "multer": "^1.4.5-lts.1",
     "natural": "^6.10.2",
     "otplib": "^12.0.1",
     "qrcode": "^1.5.3",
-    "multer": "^1.4.5-lts.1",
+    "twilio": "^5.12.2",
     "ws": "^8.14.2"
   },
   "devDependencies": {

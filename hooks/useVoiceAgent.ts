@@ -25,13 +25,19 @@ export function useVoiceAgent() {
 
       // Handle navigation based on action
       if (response.actionSuggested === 'prefill_and_navigate_upi') {
-        navigation.navigate('UPIPayment', {
-          amount: response.entities?.amount,
+        navigation.navigate('SendMoney', {
+          amount: response.entities?.amount?.toString(),
+          recipient: response.entities?.recipient,
+          paymentMethod: 'UPI',
         });
       } else if (response.actionSuggested === 'ask_pin_for_balance') {
         navigation.navigate('Balance');
       } else if (response.actionSuggested === 'show_history') {
         navigation.navigate('TransactionHistory');
+      } else if (response.actionSuggested === 'scan_qr') {
+        navigation.navigate('QRScanner');
+      } else if (response.actionSuggested === 'check_fraud') {
+        navigation.navigate('FraudScan');
       }
 
       return response;

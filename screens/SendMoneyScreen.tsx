@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { View, StyleSheet, TextInput, Pressable, Alert, GestureResponderEvent } from "react-native";
+import { View, StyleSheet, TextInput, Pressable, Alert, GestureResponderEvent, ScrollView } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  FadeInDown,
 } from "react-native-reanimated";
 import { ScreenKeyboardAwareScrollView } from "@/components/ScreenKeyboardAwareScrollView";
 import { ThemedText } from "@/components/ThemedText";
@@ -83,10 +84,7 @@ function ContactCard({
       </View>
 
       <View style={styles.contactInfo}>
-        <ThemedText style={styles.contactName}>{contact.name}</ThemedText>
-        <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-          {contact.upiId}
-        </ThemedText>
+        <ThemedText style={[styles.contactName, { textAlign: 'center'}]}>{contact.name.split(' ')[0]}</ThemedText>
       </View>
 
       {isSelected ? (
@@ -361,7 +359,7 @@ export default function SendMoneyScreen() {
 
   return (
     <ScreenKeyboardAwareScrollView>
-      <View style={styles.section}>
+      <Animated.View style={styles.section} entering={FadeInDown.delay(100)}>
         <ThemedText
           type="small"
           style={[styles.sectionLabel, { color: theme.textSecondary }]}
@@ -369,7 +367,7 @@ export default function SendMoneyScreen() {
           Recent Contacts
         </ThemedText>
 
-        <View style={styles.contactsGrid}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.contactsGrid}>
           {RECENT_CONTACTS.map((contact) => (
             <ContactCard
               key={contact.id}
@@ -378,12 +376,12 @@ export default function SendMoneyScreen() {
               onSelect={() => handleContactSelect(contact)}
             />
           ))}
-        </View>
-      </View>
+        </ScrollView>
+      </Animated.View>
 
       {/* ALL OTHER UI unchanged exactly as before */}
 
-      <View style={styles.section}>
+      <Animated.View style={styles.section} entering={FadeInDown.delay(200)}>
         <ThemedText
           type="small"
           style={[styles.sectionLabel, { color: theme.textSecondary }]}
@@ -430,9 +428,9 @@ export default function SendMoneyScreen() {
             Scan QR Code
           </ThemedText>
         </Pressable>
-      </View>
+      </Animated.View>
 
-      <View style={styles.section}>
+      <Animated.View style={styles.section} entering={FadeInDown.delay(300)}>
         <ThemedText
           type="small"
           style={[styles.sectionLabel, { color: theme.textSecondary }]}
@@ -454,9 +452,9 @@ export default function SendMoneyScreen() {
             keyboardType="numeric"
           />
         </View>
-      </View>
+      </Animated.View>
 
-      <View style={styles.section}>
+      <Animated.View style={styles.section} entering={FadeInDown.delay(400)}>
         <ThemedText
           type="small"
           style={[styles.sectionLabel, { color: theme.textSecondary }]}
@@ -479,18 +477,20 @@ export default function SendMoneyScreen() {
           onChangeText={setNote}
           multiline
         />
-      </View>
+      </Animated.View>
 
-      <Button
-        onPress={handleReviewPayment}
-        disabled={!recipient || !amount}
-        style={{
-          backgroundColor: KAVACHColors.primary,
-          marginTop: Spacing.xl,
-        }}
-      >
-        {t("reviewPayment")}
-      </Button>
+      <Animated.View entering={FadeInDown.delay(500)} style={{ flex: 1, paddingBottom: 60, justifyContent: "flex-end", minHeight: 120 }}>
+        <Button
+          onPress={handleReviewPayment}
+          disabled={!recipient || !amount}
+          style={{
+            backgroundColor: KAVACHColors.primary,
+            marginTop: Spacing.xl,
+          }}
+        >
+          {t("reviewPayment")}
+        </Button>
+      </Animated.View>
     </ScreenKeyboardAwareScrollView>
   );
 }
@@ -506,21 +506,22 @@ const styles = StyleSheet.create({
   },
   contactsGrid: {
     gap: Spacing.sm,
+    paddingRight: Spacing.xl,
+    paddingBottom: Spacing.sm,
   },
   contactCard: {
-    flexDirection: "row",
     alignItems: "center",
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
-    borderWidth: 1,
+    marginRight: Spacing.sm,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: Spacing.md,
+    marginBottom: Spacing.xs,
   },
   avatarText: {
     fontSize: 18,

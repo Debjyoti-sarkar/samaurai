@@ -9,7 +9,7 @@ import Animated, {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
-import { BorderRadius, Spacing, KAVACHColors } from "@/constants/theme";
+import { BorderRadius, Spacing, KAVACHColors, Shadows } from "@/constants/theme";
 
 interface ButtonProps {
   onPress?: () => void;
@@ -20,10 +20,10 @@ interface ButtonProps {
 }
 
 const springConfig: WithSpringConfig = {
-  damping: 15,
+  damping: 12,
   mass: 0.3,
-  stiffness: 150,
-  overshootClamping: true,
+  stiffness: 200,
+  overshootClamping: false,
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -44,7 +44,7 @@ export function Button({
 
   const handlePressIn = () => {
     if (!disabled) {
-      scale.value = withSpring(0.98, springConfig);
+      scale.value = withSpring(0.95, springConfig);
     }
   };
 
@@ -66,6 +66,11 @@ export function Button({
     return "#FFFFFF";
   };
 
+  const getShadow = () => {
+    if (variant === "primary" && !disabled) return Shadows.md;
+    return {};
+  };
+
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
@@ -80,6 +85,7 @@ export function Button({
           borderWidth: variant === "outline" ? 1 : 0,
           borderColor: KAVACHColors.primary,
         },
+        getShadow(),
         style,
         animatedStyle,
       ]}
@@ -97,9 +103,10 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     height: Spacing.buttonHeight,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.full,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: Spacing.xl,
   },
   buttonText: {
     fontWeight: "600",

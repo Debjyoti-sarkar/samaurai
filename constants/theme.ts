@@ -1,28 +1,48 @@
 import { Platform } from "react-native";
 
 export const KAVACHColors = {
-  background: "#F5F1E8",
-  primary: "#2C5F4F",
-  secondary: "#7A9B8E",
-  sos: "#D32F2F",
-  success: "#43A047",
-  warning: "#FB8C00",
-  info: "#1976D2",
-  textPrimary: "#1A1A1A",
-  textSecondary: "#666666",
-  border: "#D4CFC2",
-  card: "#FFFFFF",
-  sendMoney: "#2C5F4F",
-  qrScanner: "#1976D2",
-  fraudScan: "#43A047",
-  balance: "#1976D2",
-  offlineOtp: "#FB8C00",
-  recentActivity: "#FFC107",
-  voiceAssistant: "#2196F3",
+  background: "#0F172A", // Slate 900
+  primary: "#6366F1", // Indigo 500
+  secondary: "#818CF8", // Indigo 400
+  sos: "#EF4444", // Red 500
+  success: "#10B981", // Emerald 500
+  warning: "#F59E0B", // Amber 500
+  info: "#3B82F6", // Blue 500
+  textPrimary: "#F8FAFC", // Slate 50
+  textSecondary: "#94A3B8", // Slate 400
+  border: "#1E293B", // Slate 800
+  card: "#1E293B", // Slate 800
+  sendMoney: "#6366F1", 
+  qrScanner: "#3B82F6",
+  fraudScan: "#10B981",
+  balance: "#3B82F6",
+  offlineOtp: "#F59E0B",
+  recentActivity: "#8B5CF6", // Violet 500
+  voiceAssistant: "#06B6D4", // Cyan 500
 };
 
 export const Colors = {
   light: {
+    text: "#0F172A",
+    textSecondary: "#64748B",
+    buttonText: "#FFFFFF",
+    tabIconDefault: "#64748B",
+    tabIconSelected: KAVACHColors.primary,
+    link: KAVACHColors.primary,
+    backgroundRoot: "#F8FAFC",
+    backgroundDefault: "#FFFFFF",
+    backgroundSecondary: "#E2E8F0",
+    backgroundTertiary: "#CBD5E1",
+    border: "#CBD5E1",
+    primary: KAVACHColors.primary,
+    secondary: KAVACHColors.secondary,
+    sos: KAVACHColors.sos,
+    success: KAVACHColors.success,
+    warning: KAVACHColors.warning,
+    info: KAVACHColors.info,
+    card: "#FFFFFF",
+  },
+  dark: { // force dark mode styling for the aesthetic
     text: KAVACHColors.textPrimary,
     textSecondary: KAVACHColors.textSecondary,
     buttonText: "#FFFFFF",
@@ -31,8 +51,8 @@ export const Colors = {
     link: KAVACHColors.primary,
     backgroundRoot: KAVACHColors.background,
     backgroundDefault: KAVACHColors.card,
-    backgroundSecondary: "#F0ECE3",
-    backgroundTertiary: "#E8E4DB",
+    backgroundSecondary: "#334155",
+    backgroundTertiary: "#475569",
     border: KAVACHColors.border,
     primary: KAVACHColors.primary,
     secondary: KAVACHColors.secondary,
@@ -41,26 +61,6 @@ export const Colors = {
     warning: KAVACHColors.warning,
     info: KAVACHColors.info,
     card: KAVACHColors.card,
-  },
-  dark: {
-    text: "#ECEDEE",
-    textSecondary: "#9BA1A6",
-    buttonText: "#FFFFFF",
-    tabIconDefault: "#9BA1A6",
-    tabIconSelected: "#7A9B8E",
-    link: "#7A9B8E",
-    backgroundRoot: "#1A1A1A",
-    backgroundDefault: "#2A2C2E",
-    backgroundSecondary: "#353739",
-    backgroundTertiary: "#404244",
-    border: "#404244",
-    primary: "#7A9B8E",
-    secondary: "#5A7B6E",
-    sos: "#EF5350",
-    success: "#66BB6A",
-    warning: "#FFA726",
-    info: "#42A5F5",
-    card: "#2A2C2E",
   },
 };
 
@@ -74,8 +74,8 @@ export const Spacing = {
   "3xl": 32,
   "4xl": 40,
   "5xl": 48,
-  inputHeight: 48,
-  buttonHeight: 52,
+  inputHeight: 56, // Taller inputs for modern feel
+  buttonHeight: 56, // Taller buttons
 };
 
 export const BorderRadius = {
@@ -83,20 +83,20 @@ export const BorderRadius = {
   sm: 12,
   md: 16,
   lg: 24,
-  xl: 30,
+  xl: 32, // rounder
   "2xl": 40,
   "3xl": 50,
-  full: 9999,
+  full: 9999, // complete pill
 };
 
 export const Typography = {
   h1: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700" as const,
   },
   h2: {
-    fontSize: 22,
-    fontWeight: "600" as const,
+    fontSize: 24,
+    fontWeight: "700" as const,
   },
   h3: {
     fontSize: 20,
@@ -120,7 +120,7 @@ export const Typography = {
   },
   link: {
     fontSize: 16,
-    fontWeight: "400" as const,
+    fontWeight: "500" as const,
   },
 };
 
@@ -149,23 +149,23 @@ export const Fonts = Platform.select({
 export const Shadows = {
   sm: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 2,
   },
   md: {
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 5,
   },
   lg: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: "#6366F1", // Primary glow for prominent cards
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 8,
   },
 };

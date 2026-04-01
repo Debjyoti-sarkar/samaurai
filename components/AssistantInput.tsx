@@ -1,16 +1,15 @@
 import React from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { Shadows, BorderRadius, KAVACHColors } from '../constants/theme';
 
-// Helper to get colors with fallbacks
-const getColors = (theme: any) => ({
-  ...theme,
-  background: theme.backgroundRoot || theme.background || '#F5F1E8',
-  textSecondary: theme.textSecondary || '#888',
-  card: theme.card || '#FFFFFF',
-  border: theme.border || '#D4CFC2',
-});
+const AnimatedPressable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface AssistantInputProps {
   text: string;
@@ -28,7 +27,11 @@ export const AssistantInput: React.FC<AssistantInputProps> = ({
   disabled = false,
 }) => {
   const { theme } = useTheme();
-  const colors = getColors(theme);
+  const scale = useSharedValue(1);
+
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
 
   const handleSend = () => {
     if (text.trim() && !disabled) {
@@ -36,63 +39,82 @@ export const AssistantInput: React.FC<AssistantInputProps> = ({
     }
   };
 
+  const handlePressIn = () => {
+    scale.value = withSpring(0.9, { damping: 10, stiffness: 200 });
+  };
+  const handlePressOut = () => {
+    scale.value = withSpring(1, { damping: 10, stiffness: 200 });
+  };
+
+  const active = !!text.trim() && !disabled;
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <TextInput
-        style={[styles.input, { color: colors.text }]}
-        value={text}
-        onChangeText={setText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary || '#888'}
-        editable={!disabled}
-        multiline
-        maxLength={500}
-        returnKeyType="send"
-        onSubmitEditing={handleSend}
-      />
-      <TouchableOpacity
-        style={[
-          styles.sendButton,
-          { backgroundColor: text.trim() && !disabled ? colors.primary : colors.border },
-        ]}
-        onPress={handleSend}
-        disabled={!text.trim() || disabled}
-      >
-        <Ionicons
-          name="send"
-          size={20}
-          color={text.trim() && !disabled ? '#fff' : colors.textSecondary || '#888'}
+    <View style={[styles.floatingWrapper, Shadows.lg]}>
+      <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <TextInput
+          style={[styles.input, { color: theme.text }]}
+          value={text}
+          onChangeText={setText}
+          placeholder={placeholder}
+          placeholderTextColor={theme.textSecondary || '#888'}
+          editable={!disabled}
+          multiline
+          maxLength={1000}
+          returnKeyType="send"
+          onSubmitEditing={handleSend}
         />
-      </TouchableOpacity>
+        <AnimatedPressable
+          style={[
+            styles.sendButton,
+            { backgroundColor: active ? KAVACHColors.primary : theme.backgroundSecondary },
+            animatedButtonStyle,
+          ]}
+          onPress={handleSend}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={!active}
+          activeOpacity={1}
+        >
+          <Feather
+            name="arrow-up"
+            size={22}
+            color={active ? '#fff' : theme.textSecondary}
+          />
+        </AnimatedPressable>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  floatingWrapper: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: BorderRadius.xl,
+  },
   container: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
+    alignItems: 'center',
+    paddingLeft: 16,
+    paddingRight: 8,
     paddingVertical: 8,
     borderWidth: 1,
-    borderRadius: 24,
-    marginHorizontal: 16,
-    marginVertical: 8,
+    borderRadius: BorderRadius.xl, // Pill shaped outer box
+    minHeight: 56,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    paddingHorizontal: 12,
     paddingVertical: 8,
-    maxHeight: 100,
+    maxHeight: 120, // Let it grow but cap it
   },
   sendButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 20, // Circular button
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
+    marginLeft: 12,
   },
 });
 

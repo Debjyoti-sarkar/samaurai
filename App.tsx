@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NexaSafeProvider, useNexaSafe } from "@/contexts/NexaSafeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useTheme } from "@/hooks/useTheme";
 import { KAVACHColors } from "@/constants/theme";
 import simService from "@/services/SIMService";
@@ -170,13 +171,15 @@ export default function App() {
       <SafeAreaProvider>
         <GestureHandlerRootView style={styles.root}>
           <KeyboardProvider>
-            <LanguageProvider>
-              <AuthProvider>
-                <NexaSafeProvider>
-                  <AppContent />
-                </NexaSafeProvider>
-              </AuthProvider>
-            </LanguageProvider>
+            <ThemeProvider>
+              <LanguageProvider>
+                <AuthProvider>
+                  <NexaSafeProvider>
+                    <AppContent />
+                  </NexaSafeProvider>
+                </AuthProvider>
+              </LanguageProvider>
+            </ThemeProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>

@@ -1,7 +1,9 @@
 import React, { useEffect } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { View } from "react-native";
+import { Feather } from "@expo/vector-icons";
 
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -94,6 +96,41 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
+
+function DashboardTabs() {
+  const { theme } = useTheme();
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => {
+          let iconName: any = "home";
+          if (route.name === "Home") iconName = "home";
+          else if (route.name === "ScanTab") iconName = "maximize";
+          else if (route.name === "HistoryTab") iconName = "clock";
+          else if (route.name === "ProfileTab") iconName = "user";
+          return <Feather name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textSecondary,
+        tabBarStyle: {
+          backgroundColor: theme.card,
+          borderTopColor: theme.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+          elevation: 0,
+        },
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={DashboardScreen} />
+      <Tab.Screen name="ScanTab" component={QRScannerScreen} options={{ tabBarLabel: 'Scan' }} />
+      <Tab.Screen name="HistoryTab" component={TransactionHistoryScreen} options={{ tabBarLabel: 'History' }} />
+      <Tab.Screen name="ProfileTab" component={SettingsScreen} options={{ tabBarLabel: 'Profile' }} />
+    </Tab.Navigator>
+  );
+}
 
 export default function RootNavigator() {
   const { theme, isDark } = useTheme();
@@ -179,10 +216,9 @@ export default function RootNavigator() {
       {/* MAIN APP */}
       <Stack.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={DashboardTabs}
         options={{
-          headerTitle: () => <HeaderTitle title="KAVACH" />,
-          headerBackVisible: false,
+          headerShown: false,
           gestureEnabled: false,
         }}
       />
